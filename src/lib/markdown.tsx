@@ -84,9 +84,18 @@ export function renderMarkdown(text: string): React.ReactNode[] {
   return elements;
 }
 
+function isSafeHref(url: string): boolean {
+  try {
+    const u = new URL(url, 'http://placeholder.local');
+    return u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:';
+  } catch {
+    return false;
+  }
+}
+
 function renderInline(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
-  const regex = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)/g;
+  const regex = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|\[([^\]]+)\]\(([^)]+)\)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -104,15 +113,33 @@ function renderInline(text: string): React.ReactNode {
     } else if (match[2]) {
       parts.push(
         <strong key={match.index} className="font-semibold text-white">
-          {match[2].slice(2, -2)}
+          {renderInline(match[2].slice(2, -2))}
         </strong>
       );
     } else if (match[3]) {
       parts.push(
         <em key={match.index} className="italic text-kami-text">
-          {match[3].slice(1, -1)}
+          {renderInline(match[3].slice(1, -1))}
         </em>
       );
+    } else if (match[4] !== undefined && match[5] !== undefined) {
+      const label = match[4];
+      const href = match[5];
+      if (isSafeHref(href)) {
+        parts.push(
+          <a
+            key={match.index}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-kami-accent hover:text-kami-accentHover underline underline-offset-2 break-words"
+          >
+            {label}
+          </a>
+        );
+      } else {
+        parts.push(match[0]);
+      }
     }
 
     lastIndex = match.index + match[0].length;
