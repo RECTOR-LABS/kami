@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { streamText } from 'ai';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenAI } from '@ai-sdk/openai';
 import { SYSTEM_PROMPT } from './prompt.js';
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -25,9 +25,9 @@ interface ChatBody {
 }
 
 fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.KAMI_OPENROUTER_API_KEY;
   if (!apiKey) {
-    return reply.code(500).send({ error: 'OPENROUTER_API_KEY not configured' });
+    return reply.code(500).send({ error: 'KAMI_OPENROUTER_API_KEY not configured' });
   }
 
   const { messages, walletAddress } = request.body;
@@ -36,7 +36,10 @@ fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
     return reply.code(400).send({ error: 'messages array is required' });
   }
 
-  const openrouter = createOpenRouter({ apiKey });
+  const openrouter = createOpenAI({
+    apiKey,
+    baseURL: 'https://openrouter.ai/api/v1',
+  });
 
   reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -55,7 +58,7 @@ fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
       : '\n\nNo wallet connected yet.';
 
     const result = streamText({
-      model: openrouter(MODEL),
+      model: openrouter.chat(MODEL),
       system: SYSTEM_PROMPT + walletContext,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
     });
