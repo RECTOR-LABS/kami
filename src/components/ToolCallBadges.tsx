@@ -3,6 +3,8 @@ import type { ToolCallRecord } from '../types';
 
 const TOOL_LABELS: Record<string, string> = {
   getPortfolio: 'Fetching Kamino portfolio',
+  findYield: 'Scanning yield opportunities',
+  simulateHealth: 'Simulating health factor',
 };
 
 function labelFor(name: string): string {

@@ -8,6 +8,7 @@ import {
   DEFAULT_RECENT_SLOT_DURATION_MS,
   type KaminoObligation,
   type KaminoReserve,
+  type ActionType,
 } from '@kamino-finance/klend-sdk';
 import type { ToolDefinition, ToolResult } from './types.js';
 import { getRpc } from '../solana/connection.js';
@@ -171,6 +172,231 @@ export const getPortfolio: ToolDefinition<
   },
 };
 
+export const findYieldSchema = z.object({
+  symbol: z
+    .string()
+    .optional()
+    .describe("Optional token symbol filter, e.g. 'USDC', 'SOL', 'JitoSOL'. Omit to scan all reserves."),
+  side: z
+    .enum(['supply', 'borrow'])
+    .default('supply')
+    .describe("'supply' = lending APY you earn, 'borrow' = interest rate you pay."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .default(5)
+    .describe('Max number of reserves to return (sorted by APY, descending).'),
+});
+
+export interface YieldOpportunity {
+  symbol: string;
+  mint: string;
+  reserve: string;
+  side: 'supply' | 'borrow';
+  apyPercent: number;
+  ltvRatio: number;
+  liquidationLtv: number;
+  utilizationPercent: number;
+  marketPriceUsd: number;
+}
+
+function computeUtilizationPercent(reserve: KaminoReserve): number {
+  const borrowed = reserve.getBorrowedAmount();
+  const available = reserve.getLiquidityAvailableAmount();
+  const total = borrowed.plus(available);
+  if (total.lte(0)) return 0;
+  return toNumber(borrowed.div(total).mul(100));
+}
+
+export const findYield: ToolDefinition<
+  z.infer<typeof findYieldSchema>,
+  ToolResult<YieldOpportunity[]>
+> = {
+  name: 'findYield',
+  description:
+    'List top Kamino main-market reserves by live APY. Use when the user asks "where\'s the best yield", "best USDC rate", "cheapest place to borrow X", or any comparison across reserves.',
+  schema: findYieldSchema,
+  handler: async (input) => {
+    const market = await getMarket();
+    const rpc = getRpc();
+    const currentSlot = await rpc.getSlot().send();
+
+    const symbolFilter = input.symbol?.trim().toUpperCase();
+    const side = input.side ?? 'supply';
+    const limit = input.limit ?? 5;
+
+    const opportunities: YieldOpportunity[] = [];
+    for (const reserve of market.reserves.values()) {
+      if (reserve.stats.status !== 'Active') continue;
+      const symbol = reserve.getTokenSymbol();
+      if (symbolFilter && symbol.toUpperCase() !== symbolFilter) continue;
+      const apy =
+        side === 'supply' ? reserve.totalSupplyAPY(currentSlot) : reserve.totalBorrowAPY(currentSlot);
+      if (!Number.isFinite(apy)) continue;
+      opportunities.push({
+        symbol,
+        mint: reserve.stats.mintAddress,
+        reserve: reserve.address,
+        side,
+        apyPercent: apy * 100,
+        ltvRatio: reserve.stats.loanToValue,
+        liquidationLtv: reserve.stats.liquidationThreshold,
+        utilizationPercent: computeUtilizationPercent(reserve),
+        marketPriceUsd: toNumber(reserve.getOracleMarketPrice()),
+      });
+    }
+
+    opportunities.sort((a, b) => b.apyPercent - a.apyPercent);
+
+    return { ok: true, data: opportunities.slice(0, limit) };
+  },
+};
+
+export const simulateHealthSchema = z.object({
+  action: z
+    .enum(['deposit', 'borrow', 'withdraw', 'repay'])
+    .describe('Which obligation action to simulate.'),
+  symbol: z.string().describe('Reserve symbol, e.g. "USDC", "SOL", "JitoSOL".'),
+  amount: z
+    .number()
+    .positive()
+    .describe('Amount in human token units (NOT lamports). e.g. 100 for 100 USDC.'),
+});
+
+export interface HealthSimulation {
+  action: ActionType;
+  symbol: string;
+  amount: number;
+  current: {
+    loanToValue: number;
+    liquidationLtv: number;
+    healthFactor: number | null;
+    netValueUsd: number;
+    totalDepositedUsd: number;
+    totalBorrowedUsd: number;
+  };
+  projected: {
+    loanToValue: number;
+    liquidationLtv: number;
+    healthFactor: number | null;
+    netValueUsd: number;
+    totalDepositedUsd: number;
+    totalBorrowedUsd: number;
+  };
+  warnings: string[];
+}
+
+function snapshotStats(stats: {
+  loanToValue: Decimal;
+  liquidationLtv: Decimal;
+  netAccountValue: Decimal;
+  userTotalDeposit: Decimal;
+  userTotalBorrow: Decimal;
+}): HealthSimulation['current'] {
+  return {
+    loanToValue: toNumber(stats.loanToValue),
+    liquidationLtv: toNumber(stats.liquidationLtv),
+    healthFactor: computeHealthFactor(stats.loanToValue, stats.liquidationLtv),
+    netValueUsd: toNumber(stats.netAccountValue),
+    totalDepositedUsd: toNumber(stats.userTotalDeposit),
+    totalBorrowedUsd: toNumber(stats.userTotalBorrow),
+  };
+}
+
+export const simulateHealth: ToolDefinition<
+  z.infer<typeof simulateHealthSchema>,
+  ToolResult<HealthSimulation>
+> = {
+  name: 'simulateHealth',
+  description:
+    "Project the user's Kamino main-market health factor after a hypothetical deposit / borrow / withdraw / repay. Call this before any risk-sensitive action to check if it would trigger liquidation.",
+  schema: simulateHealthSchema,
+  handler: async (input, ctx) => {
+    if (!ctx.walletAddress) {
+      return {
+        ok: false,
+        error: 'No wallet connected. Ask the user to connect Phantom or Solflare first.',
+      };
+    }
+
+    let wallet: Address;
+    try {
+      wallet = address(ctx.walletAddress);
+    } catch {
+      return { ok: false, error: `Invalid wallet address: ${ctx.walletAddress}` };
+    }
+
+    const market = await getMarket();
+    const obligation = await fetchVanillaObligation(market, wallet);
+    if (!obligation) {
+      return {
+        ok: false,
+        error:
+          'This wallet has no active Kamino obligation yet. Simulation requires an existing position — the user should make their first deposit via the Kamino app first.',
+      };
+    }
+
+    const reserve = market.getReserveBySymbol(input.symbol);
+    if (!reserve) {
+      return { ok: false, error: `Unknown reserve symbol "${input.symbol}" on Kamino main market.` };
+    }
+
+    const rpc = getRpc();
+    const currentSlot = await rpc.getSlot().send();
+
+    const mintFactor = new Decimal(10).pow(reserve.stats.decimals);
+    const amountLamports = new Decimal(input.amount).mul(mintFactor);
+
+    const isCollateralAction = input.action === 'deposit' || input.action === 'withdraw';
+    const simParams = {
+      action: input.action as ActionType,
+      market,
+      reserves: market.reserves,
+      slot: currentSlot,
+      ...(isCollateralAction
+        ? { amountCollateral: amountLamports, mintCollateral: reserve.stats.mintAddress }
+        : { amountDebt: amountLamports, mintDebt: reserve.stats.mintAddress }),
+    };
+
+    const simulated = obligation.getSimulatedObligationStats(simParams);
+
+    const current = snapshotStats(obligation.refreshedStats);
+    const projected = snapshotStats(simulated.stats);
+
+    const warnings: string[] = [];
+    if (projected.healthFactor !== null && projected.healthFactor < 1.0) {
+      warnings.push(
+        `Projected health factor ${projected.healthFactor.toFixed(3)} is below 1.0 — this action would trigger liquidation.`
+      );
+    } else if (projected.healthFactor !== null && projected.healthFactor < 1.1) {
+      warnings.push(
+        `Projected health factor ${projected.healthFactor.toFixed(3)} is razor-thin — leaves no buffer against price swings.`
+      );
+    }
+    if (projected.loanToValue > current.liquidationLtv) {
+      warnings.push(
+        `Projected LTV ${(projected.loanToValue * 100).toFixed(2)}% exceeds the current liquidation threshold ${(current.liquidationLtv * 100).toFixed(2)}%.`
+      );
+    }
+
+    return {
+      ok: true,
+      data: {
+        action: input.action as ActionType,
+        symbol: reserve.getTokenSymbol(),
+        amount: input.amount,
+        current,
+        projected,
+        warnings,
+      },
+    };
+  },
+};
+
 export const TOOLS = {
   getPortfolio,
+  findYield,
+  simulateHealth,
 } as const;

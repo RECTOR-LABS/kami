@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import { streamText, stepCountIs, tool } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { SYSTEM_PROMPT } from './prompt.js';
-import { getPortfolio } from './tools/kamino.js';
+import { getPortfolio, findYield, simulateHealth } from './tools/kamino.js';
 import type { ToolContext } from './tools/types.js';
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -28,15 +28,39 @@ interface ChatBody {
 }
 
 function buildTools(ctx: ToolContext, log: typeof fastify.log) {
+  const trace = (name: string, ok: boolean) => log.info({ tool: name, ok }, 'tool:result');
+  const start = (name: string, input: unknown) =>
+    log.info({ tool: name, wallet: ctx.walletAddress, input }, 'tool:invoke');
+
   return {
     getPortfolio: tool({
       description: getPortfolio.description,
       inputSchema: getPortfolio.schema,
       execute: async (input) => {
-        log.info({ tool: 'getPortfolio', wallet: ctx.walletAddress, input }, 'tool:invoke');
-        const result = await getPortfolio.handler(input, ctx);
-        log.info({ tool: 'getPortfolio', ok: result.ok }, 'tool:result');
-        return result;
+        start('getPortfolio', input);
+        const r = await getPortfolio.handler(input, ctx);
+        trace('getPortfolio', r.ok);
+        return r;
+      },
+    }),
+    findYield: tool({
+      description: findYield.description,
+      inputSchema: findYield.schema,
+      execute: async (input) => {
+        start('findYield', input);
+        const r = await findYield.handler(input, ctx);
+        trace('findYield', r.ok);
+        return r;
+      },
+    }),
+    simulateHealth: tool({
+      description: simulateHealth.description,
+      inputSchema: simulateHealth.schema,
+      execute: async (input) => {
+        start('simulateHealth', input);
+        const r = await simulateHealth.handler(input, ctx);
+        trace('simulateHealth', r.ok);
+        return r;
       },
     }),
   };
