@@ -11,3 +11,4 @@ dist/
 coverage/
 .vscode/
 .idea/
+.vercel
