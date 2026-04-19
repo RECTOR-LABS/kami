@@ -1,15 +1,15 @@
-import { Connection } from '@solana/web3.js';
+import { createSolanaRpc, type Rpc, type SolanaRpcApi } from '@solana/kit';
 
 const DEFAULT_RPC = 'https://api.mainnet-beta.solana.com';
 
-let sharedConnection: Connection | null = null;
+let sharedRpc: Rpc<SolanaRpcApi> | null = null;
 
 export function getRpcUrl(): string {
   return process.env.SOLANA_RPC_URL?.trim() || DEFAULT_RPC;
 }
 
-export function getConnection(): Connection {
-  if (sharedConnection) return sharedConnection;
-  sharedConnection = new Connection(getRpcUrl(), { commitment: 'confirmed' });
-  return sharedConnection;
+export function getRpc(): Rpc<SolanaRpcApi> {
+  if (sharedRpc) return sharedRpc;
+  sharedRpc = createSolanaRpc(getRpcUrl());
+  return sharedRpc;
 }
