@@ -4,7 +4,28 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   transaction?: TransactionIntent | null;
+  pendingTransaction?: PendingTransaction | null;
   toolCalls?: ToolCallRecord[];
+}
+
+export type PendingTxAction = 'deposit' | 'borrow' | 'withdraw' | 'repay';
+
+export type PendingTxStatus = 'pending' | 'signing' | 'submitted' | 'confirmed' | 'failed';
+
+export interface PendingTransaction {
+  action: PendingTxAction;
+  protocol: 'Kamino';
+  symbol: string;
+  amount: number;
+  reserveAddress: string;
+  mint: string;
+  summary: string;
+  base64Txn: string;
+  blockhash: string;
+  lastValidBlockHeight: string;
+  status?: PendingTxStatus;
+  signature?: string;
+  error?: string;
 }
 
 export interface ToolCallRecord {

@@ -3,6 +3,7 @@ import type { ChatMessage as ChatMessageType } from '../types';
 import { renderMarkdown } from '../lib/markdown';
 import { stripTransactionBlock } from '../lib/parseTransaction';
 import TransactionCard from './TransactionCard';
+import SignTransactionCard from './SignTransactionCard';
 import ToolCallBadges from './ToolCallBadges';
 
 interface Props {
@@ -37,7 +38,10 @@ export default function ChatMessage({ message, walletConnected }: Props) {
           <ToolCallBadges calls={message.toolCalls} />
         )}
         <div className="text-sm space-y-1">{renderMarkdown(displayContent)}</div>
-        {message.transaction && (
+        {message.pendingTransaction && (
+          <SignTransactionCard transaction={message.pendingTransaction} />
+        )}
+        {!message.pendingTransaction && message.transaction && (
           <TransactionCard
             transaction={message.transaction}
             walletConnected={walletConnected}

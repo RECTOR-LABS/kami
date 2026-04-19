@@ -1,6 +1,8 @@
 import { useState, useCallback, useRef } from 'react';
-import type { ChatMessage, Conversation, ToolCallRecord } from '../types';
+import type { ChatMessage, Conversation, PendingTransaction, ToolCallRecord } from '../types';
 import { parseTransactionBlock } from '../lib/parseTransaction';
+
+const BUILD_TOOL_NAMES = new Set(['buildDeposit', 'buildBorrow', 'buildWithdraw', 'buildRepay']);
 import {
   loadConversations,
   saveConversations,
@@ -130,6 +132,7 @@ export function useChat() {
 
         const decoder = new TextDecoder();
         let accumulated = '';
+        let pendingTransaction: PendingTransaction | null = null;
         const toolCalls = new Map<string, ToolCallRecord>();
 
         const commitToolCalls = (msgPatch: Partial<ChatMessage>) => {
@@ -139,7 +142,12 @@ export function useChat() {
                   ...c,
                   messages: c.messages.map((m) =>
                     m.id === assistantMsg.id
-                      ? { ...m, ...msgPatch, toolCalls: Array.from(toolCalls.values()) }
+                      ? {
+                          ...m,
+                          ...msgPatch,
+                          toolCalls: Array.from(toolCalls.values()),
+                          pendingTransaction,
+                        }
                       : m
                   ),
                 }
@@ -176,12 +184,20 @@ export function useChat() {
                 }
                 if (parsed.toolResult) {
                   const existing = toolCalls.get(parsed.toolResult.id);
+                  const output = parsed.toolResult.output;
                   toolCalls.set(parsed.toolResult.id, {
                     id: parsed.toolResult.id,
                     name: parsed.toolResult.name,
-                    status: parsed.toolResult.output?.ok === false ? 'error' : 'done',
-                    error: parsed.toolResult.output?.ok === false ? parsed.toolResult.output.error : existing?.error,
+                    status: output?.ok === false ? 'error' : 'done',
+                    error: output?.ok === false ? output.error : existing?.error,
                   });
+                  if (
+                    BUILD_TOOL_NAMES.has(parsed.toolResult.name) &&
+                    output?.ok === true &&
+                    output.data?.base64Txn
+                  ) {
+                    pendingTransaction = { ...output.data, status: 'pending' } as PendingTransaction;
+                  }
                   commitToolCalls({ content: accumulated });
                 }
                 if (parsed.toolError) {
