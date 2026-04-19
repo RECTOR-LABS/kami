@@ -1,7 +1,20 @@
 import { z } from 'zod';
-import { address, type Address } from '@solana/kit';
+import {
+  address,
+  appendTransactionMessageInstructions,
+  compileTransaction,
+  createNoopSigner,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash,
+  type Address,
+  type TransactionSigner,
+} from '@solana/kit';
 import Decimal from 'decimal.js';
 import {
+  KaminoAction,
   KaminoMarket,
   VanillaObligation,
   PROGRAM_ID,
@@ -395,8 +408,245 @@ export const simulateHealth: ToolDefinition<
   },
 };
 
+export type BuildAction = 'deposit' | 'borrow' | 'withdraw' | 'repay';
+
+export interface PendingTransaction {
+  action: BuildAction;
+  protocol: 'Kamino';
+  symbol: string;
+  amount: number;
+  reserveAddress: string;
+  mint: string;
+  summary: string;
+  base64Txn: string;
+  blockhash: string;
+  lastValidBlockHeight: string;
+}
+
+export const buildActionInputSchema = z.object({
+  symbol: z
+    .string()
+    .describe('Reserve token symbol on the Kamino main market, e.g. "USDC", "SOL", "JitoSOL".'),
+  amount: z
+    .number()
+    .positive()
+    .describe('Amount in human token units (NOT lamports). e.g. 100 for 100 USDC.'),
+});
+
+type BuildActionInput = z.infer<typeof buildActionInputSchema>;
+
+async function compileKaminoAction(
+  action: BuildAction,
+  mint: Address,
+  amountStr: string,
+  ownerSigner: TransactionSigner<string>,
+  market: KaminoMarket,
+  currentSlot: bigint
+): Promise<KaminoAction> {
+  const obligation = new VanillaObligation(PROGRAM_ID);
+  const useV2Ixs = true;
+  const extraComputeBudget = 400_000;
+  const includeAtaIxs = true;
+  const requestElevationGroup = false;
+
+  switch (action) {
+    case 'deposit':
+      return KaminoAction.buildDepositTxns(
+        market,
+        amountStr,
+        mint,
+        ownerSigner,
+        obligation,
+        useV2Ixs,
+        undefined,
+        extraComputeBudget,
+        includeAtaIxs,
+        requestElevationGroup,
+        undefined,
+        undefined,
+        currentSlot
+      );
+    case 'borrow':
+      return KaminoAction.buildBorrowTxns(
+        market,
+        amountStr,
+        mint,
+        ownerSigner,
+        obligation,
+        useV2Ixs,
+        undefined,
+        extraComputeBudget,
+        includeAtaIxs,
+        requestElevationGroup,
+        undefined,
+        undefined,
+        currentSlot
+      );
+    case 'withdraw':
+      return KaminoAction.buildWithdrawTxns(
+        market,
+        amountStr,
+        mint,
+        ownerSigner,
+        obligation,
+        useV2Ixs,
+        undefined,
+        extraComputeBudget,
+        includeAtaIxs,
+        requestElevationGroup,
+        undefined,
+        undefined,
+        currentSlot
+      );
+    case 'repay':
+      return KaminoAction.buildRepayTxns(
+        market,
+        amountStr,
+        mint,
+        ownerSigner,
+        obligation,
+        useV2Ixs,
+        undefined,
+        currentSlot,
+        undefined,
+        extraComputeBudget,
+        includeAtaIxs,
+        requestElevationGroup,
+        undefined,
+        undefined
+      );
+  }
+}
+
+function verbFor(action: BuildAction): string {
+  return action.charAt(0).toUpperCase() + action.slice(1);
+}
+
+async function buildPendingTransaction(
+  action: BuildAction,
+  input: BuildActionInput,
+  walletAddress: string
+): Promise<ToolResult<PendingTransaction>> {
+  let wallet: Address;
+  try {
+    wallet = address(walletAddress);
+  } catch {
+    return { ok: false, error: `Invalid wallet address: ${walletAddress}` };
+  }
+
+  const market = await getMarket();
+  const reserve = market.getReserveBySymbol(input.symbol);
+  if (!reserve) {
+    return { ok: false, error: `Unknown reserve symbol "${input.symbol}" on Kamino main market.` };
+  }
+
+  const rpc = getRpc();
+  const currentSlot = await rpc.getSlot().send();
+
+  const mintFactor = new Decimal(10).pow(reserve.stats.decimals);
+  const amountLamports = new Decimal(input.amount).mul(mintFactor).toDecimalPlaces(0, Decimal.ROUND_FLOOR);
+  if (amountLamports.lte(0)) {
+    return { ok: false, error: `Amount too small: ${input.amount} ${input.symbol} rounds to zero lamports.` };
+  }
+  const amountStr = amountLamports.toFixed(0);
+
+  const ownerSigner = createNoopSigner(wallet);
+  const mint = reserve.stats.mintAddress;
+
+  let kaminoAction: KaminoAction;
+  try {
+    kaminoAction = await compileKaminoAction(action, mint, amountStr, ownerSigner, market, currentSlot);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `Failed to build ${action} transaction: ${message}` };
+  }
+
+  const allIxs = [
+    ...kaminoAction.computeBudgetIxs,
+    ...kaminoAction.setupIxs,
+    ...kaminoAction.inBetweenIxs,
+    ...kaminoAction.lendingIxs,
+    ...kaminoAction.cleanupIxs,
+    ...kaminoAction.refreshFarmsCleanupTxnIxs,
+  ];
+
+  const { value: latestBlockhash } = await rpc
+    .getLatestBlockhash({ commitment: 'confirmed' })
+    .send();
+
+  const txMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayerSigner(ownerSigner, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstructions(allIxs, tx)
+  );
+
+  const compiledTx = compileTransaction(txMessage);
+  const base64Txn = getBase64EncodedWireTransaction(compiledTx);
+
+  const uiAmount = amountLamports.div(mintFactor).toNumber();
+  const symbol = reserve.getTokenSymbol();
+
+  return {
+    ok: true,
+    data: {
+      action,
+      protocol: 'Kamino',
+      symbol,
+      amount: uiAmount,
+      reserveAddress: reserve.address,
+      mint,
+      summary: `${verbFor(action)} ${uiAmount} ${symbol} on Kamino main market.`,
+      base64Txn,
+      blockhash: latestBlockhash.blockhash,
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight.toString(),
+    },
+  };
+}
+
+function makeBuildTool(action: BuildAction, description: string): ToolDefinition<BuildActionInput, ToolResult<PendingTransaction>> {
+  return {
+    name: `build${verbFor(action)}`,
+    description,
+    schema: buildActionInputSchema,
+    handler: async (input, ctx) => {
+      if (!ctx.walletAddress) {
+        return {
+          ok: false,
+          error: 'No wallet connected. Ask the user to connect Phantom or Solflare first.',
+        };
+      }
+      return buildPendingTransaction(action, input, ctx.walletAddress);
+    },
+  };
+}
+
+export const buildDeposit = makeBuildTool(
+  'deposit',
+  'Build a Kamino deposit transaction for the connected wallet. Returns an unsigned base64-encoded v0 transaction the user can sign in their wallet. Call this when the user asks to deposit, supply, lend, or add collateral to Kamino.'
+);
+
+export const buildBorrow = makeBuildTool(
+  'borrow',
+  'Build a Kamino borrow transaction for the connected wallet. Returns an unsigned base64-encoded v0 transaction. Call this when the user asks to borrow / take out a loan. Always call simulateHealth first to confirm the borrow would not trigger liquidation.'
+);
+
+export const buildWithdraw = makeBuildTool(
+  'withdraw',
+  'Build a Kamino withdraw transaction (pulls previously-deposited collateral back to the wallet). Returns an unsigned base64-encoded v0 transaction. Call this when the user asks to withdraw, unstake collateral, or reclaim their supplied tokens.'
+);
+
+export const buildRepay = makeBuildTool(
+  'repay',
+  'Build a Kamino repay transaction (pays down existing borrow). Returns an unsigned base64-encoded v0 transaction. Call this when the user asks to repay, pay back, or close their loan. Hint: call getPortfolio first to read the current borrowed amount so you pass a valid value.'
+);
+
 export const TOOLS = {
   getPortfolio,
   findYield,
   simulateHealth,
+  buildDeposit,
+  buildBorrow,
+  buildWithdraw,
+  buildRepay,
 } as const;

@@ -3,7 +3,15 @@ import cors from '@fastify/cors';
 import { streamText, stepCountIs, tool } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { SYSTEM_PROMPT } from './prompt.js';
-import { getPortfolio, findYield, simulateHealth } from './tools/kamino.js';
+import {
+  getPortfolio,
+  findYield,
+  simulateHealth,
+  buildDeposit,
+  buildBorrow,
+  buildWithdraw,
+  buildRepay,
+} from './tools/kamino.js';
 import type { ToolContext } from './tools/types.js';
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -60,6 +68,46 @@ function buildTools(ctx: ToolContext, log: typeof fastify.log) {
         start('simulateHealth', input);
         const r = await simulateHealth.handler(input, ctx);
         trace('simulateHealth', r.ok);
+        return r;
+      },
+    }),
+    buildDeposit: tool({
+      description: buildDeposit.description,
+      inputSchema: buildDeposit.schema,
+      execute: async (input) => {
+        start('buildDeposit', input);
+        const r = await buildDeposit.handler(input, ctx);
+        trace('buildDeposit', r.ok);
+        return r;
+      },
+    }),
+    buildBorrow: tool({
+      description: buildBorrow.description,
+      inputSchema: buildBorrow.schema,
+      execute: async (input) => {
+        start('buildBorrow', input);
+        const r = await buildBorrow.handler(input, ctx);
+        trace('buildBorrow', r.ok);
+        return r;
+      },
+    }),
+    buildWithdraw: tool({
+      description: buildWithdraw.description,
+      inputSchema: buildWithdraw.schema,
+      execute: async (input) => {
+        start('buildWithdraw', input);
+        const r = await buildWithdraw.handler(input, ctx);
+        trace('buildWithdraw', r.ok);
+        return r;
+      },
+    }),
+    buildRepay: tool({
+      description: buildRepay.description,
+      inputSchema: buildRepay.schema,
+      execute: async (input) => {
+        start('buildRepay', input);
+        const r = await buildRepay.handler(input, ctx);
+        trace('buildRepay', r.ok);
         return r;
       },
     }),
