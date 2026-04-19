@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { ChatMessage, Conversation } from '../types';
+import type { ChatMessage, Conversation, ToolCallRecord } from '../types';
 import { parseTransactionBlock } from '../lib/parseTransaction';
 import {
   loadConversations,
@@ -130,6 +130,23 @@ export function useChat() {
 
         const decoder = new TextDecoder();
         let accumulated = '';
+        const toolCalls = new Map<string, ToolCallRecord>();
+
+        const commitToolCalls = (msgPatch: Partial<ChatMessage>) => {
+          current = current.map((c) =>
+            c.id === activeId
+              ? {
+                  ...c,
+                  messages: c.messages.map((m) =>
+                    m.id === assistantMsg.id
+                      ? { ...m, ...msgPatch, toolCalls: Array.from(toolCalls.values()) }
+                      : m
+                  ),
+                }
+              : c
+          );
+          setConversations([...current]);
+        };
 
         while (true) {
           const { done, value } = await reader.read();
@@ -147,19 +164,34 @@ export function useChat() {
                 if (parsed.text) {
                   accumulated += parsed.text;
                   const txn = parseTransactionBlock(accumulated);
-                  current = current.map((c) =>
-                    c.id === activeId
-                      ? {
-                          ...c,
-                          messages: c.messages.map((m) =>
-                            m.id === assistantMsg.id
-                              ? { ...m, content: accumulated, transaction: txn }
-                              : m
-                          ),
-                        }
-                      : c
-                  );
-                  setConversations([...current]);
+                  commitToolCalls({ content: accumulated, transaction: txn });
+                }
+                if (parsed.toolCall) {
+                  toolCalls.set(parsed.toolCall.id, {
+                    id: parsed.toolCall.id,
+                    name: parsed.toolCall.name,
+                    status: 'calling',
+                  });
+                  commitToolCalls({ content: accumulated });
+                }
+                if (parsed.toolResult) {
+                  const existing = toolCalls.get(parsed.toolResult.id);
+                  toolCalls.set(parsed.toolResult.id, {
+                    id: parsed.toolResult.id,
+                    name: parsed.toolResult.name,
+                    status: parsed.toolResult.output?.ok === false ? 'error' : 'done',
+                    error: parsed.toolResult.output?.ok === false ? parsed.toolResult.output.error : existing?.error,
+                  });
+                  commitToolCalls({ content: accumulated });
+                }
+                if (parsed.toolError) {
+                  toolCalls.set(parsed.toolError.id, {
+                    id: parsed.toolError.id,
+                    name: parsed.toolError.name,
+                    status: 'error',
+                    error: parsed.toolError.error,
+                  });
+                  commitToolCalls({ content: accumulated });
                 }
                 if (parsed.error) {
                   throw new Error(parsed.error);

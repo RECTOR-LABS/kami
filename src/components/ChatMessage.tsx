@@ -3,6 +3,7 @@ import type { ChatMessage as ChatMessageType } from '../types';
 import { renderMarkdown } from '../lib/markdown';
 import { stripTransactionBlock } from '../lib/parseTransaction';
 import TransactionCard from './TransactionCard';
+import ToolCallBadges from './ToolCallBadges';
 
 interface Props {
   message: ChatMessageType;
@@ -32,6 +33,9 @@ export default function ChatMessage({ message, walletConnected }: Props) {
         K
       </div>
       <div className="max-w-[80%] lg:max-w-[70%]">
+        {message.toolCalls && message.toolCalls.length > 0 && (
+          <ToolCallBadges calls={message.toolCalls} />
+        )}
         <div className="text-sm space-y-1">{renderMarkdown(displayContent)}</div>
         {message.transaction && (
           <TransactionCard

@@ -1,11 +1,14 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { streamText } from 'ai';
+import { streamText, stepCountIs, tool } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { SYSTEM_PROMPT } from './prompt.js';
+import { getPortfolio } from './tools/kamino.js';
+import type { ToolContext } from './tools/types.js';
 
 const PORT = Number(process.env.PORT) || 3001;
 const MODEL = process.env.KAMI_MODEL || 'anthropic/claude-sonnet-4.6';
+const MAX_STEPS = Number(process.env.KAMI_MAX_STEPS) || 5;
 
 const fastify = Fastify({
   logger: {
@@ -22,6 +25,21 @@ await fastify.register(cors, { origin: true });
 interface ChatBody {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   walletAddress: string | null;
+}
+
+function buildTools(ctx: ToolContext, log: typeof fastify.log) {
+  return {
+    getPortfolio: tool({
+      description: getPortfolio.description,
+      inputSchema: getPortfolio.schema,
+      execute: async (input) => {
+        log.info({ tool: 'getPortfolio', wallet: ctx.walletAddress, input }, 'tool:invoke');
+        const result = await getPortfolio.handler(input, ctx);
+        log.info({ tool: 'getPortfolio', ok: result.ok }, 'tool:result');
+        return result;
+      },
+    }),
+  };
 }
 
 fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
@@ -57,14 +75,47 @@ fastify.post<{ Body: ChatBody }>('/api/chat', async (request, reply) => {
       ? `\n\nThe user has connected wallet: ${walletAddress}`
       : '\n\nNo wallet connected yet.';
 
+    const ctx: ToolContext = { walletAddress: walletAddress ?? null };
+    const tools = buildTools(ctx, fastify.log);
+
     const result = streamText({
       model: openrouter.chat(MODEL),
       system: SYSTEM_PROMPT + walletContext,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      tools,
+      stopWhen: stepCountIs(MAX_STEPS),
     });
 
-    for await (const chunk of result.textStream) {
-      writeEvent({ text: chunk });
+    for await (const part of result.fullStream) {
+      switch (part.type) {
+        case 'text-delta':
+          writeEvent({ text: part.text });
+          break;
+        case 'tool-call':
+          writeEvent({
+            toolCall: { id: part.toolCallId, name: part.toolName, input: part.input },
+          });
+          break;
+        case 'tool-result':
+          writeEvent({
+            toolResult: { id: part.toolCallId, name: part.toolName, output: part.output },
+          });
+          break;
+        case 'tool-error':
+          writeEvent({
+            toolError: {
+              id: part.toolCallId,
+              name: part.toolName,
+              error: part.error instanceof Error ? part.error.message : String(part.error),
+            },
+          });
+          break;
+        case 'error': {
+          const message = part.error instanceof Error ? part.error.message : String(part.error);
+          writeEvent({ error: message });
+          break;
+        }
+      }
     }
 
     reply.raw.write('data: [DONE]\n\n');

@@ -4,6 +4,14 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   transaction?: TransactionIntent | null;
+  toolCalls?: ToolCallRecord[];
+}
+
+export interface ToolCallRecord {
+  id: string;
+  name: string;
+  status: 'calling' | 'done' | 'error';
+  error?: string;
 }
 
 export interface TransactionIntent {
