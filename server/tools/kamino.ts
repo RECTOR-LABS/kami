@@ -10,6 +10,7 @@ import {
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   type Address,
+  type Base64EncodedWireTransaction,
   type TransactionSigner,
 } from '@solana/kit';
 import Decimal from 'decimal.js';
@@ -408,6 +409,86 @@ export const simulateHealth: ToolDefinition<
   },
 };
 
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+function formatSol(lamports: number | bigint): string {
+  const n = typeof lamports === 'bigint' ? Number(lamports) : lamports;
+  return (n / LAMPORTS_PER_SOL).toFixed(6).replace(/\.?0+$/, '');
+}
+
+interface PreflightOutcome {
+  ok: boolean;
+  error?: string;
+}
+
+async function preflightSimulate(
+  rpc: ReturnType<typeof getRpc>,
+  base64Txn: Base64EncodedWireTransaction,
+  feePayer: Address,
+  action: string,
+  symbol: string,
+  amount: number
+): Promise<PreflightOutcome> {
+  let balanceLamports: bigint;
+  try {
+    const balResp = await rpc.getBalance(feePayer).send();
+    balanceLamports = balResp.value;
+  } catch (err) {
+    return { ok: true };
+  }
+
+  if (balanceLamports < 10_000n) {
+    return {
+      ok: false,
+      error: `Wallet ${feePayer} has only ${formatSol(balanceLamports)} SOL — not enough for even a transaction fee. Top up at least 0.01 SOL before signing.`,
+    };
+  }
+
+  let simResp;
+  try {
+    simResp = await rpc
+      .simulateTransaction(base64Txn, {
+        encoding: 'base64',
+        sigVerify: false,
+        replaceRecentBlockhash: true,
+        commitment: 'confirmed',
+      })
+      .send();
+  } catch (err) {
+    return { ok: true };
+  }
+
+  const err = simResp.value.err;
+  if (!err) return { ok: true };
+
+  const logs = simResp.value.logs ?? [];
+  const insufficientLog = logs.find((line) => /insufficient lamports/i.test(line));
+  if (insufficientLog) {
+    const match = insufficientLog.match(/insufficient lamports (\d+),\s*need (\d+)/);
+    if (match) {
+      const have = Number(match[1]);
+      const need = Number(match[2]);
+      const shortfall = need - have;
+      const approxTotal = Number(balanceLamports) + shortfall;
+      return {
+        ok: false,
+        error: `Insufficient SOL for rent on this ${action}. The wallet would run out mid-transaction when setting up a required Kamino account. Current balance: ${formatSol(balanceLamports)} SOL. Estimated total needed: ~${formatSol(approxTotal)} SOL (short by ~${formatSol(shortfall)} SOL). Good news: most of this is refundable account rent, returned when the Kamino position is closed.`,
+      };
+    }
+    return {
+      ok: false,
+      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL of refundable rent on top of your deposit amount. Current balance: ${formatSol(balanceLamports)} SOL.`,
+    };
+  }
+
+  const errStr = typeof err === 'string' ? err : JSON.stringify(err);
+  const tail = logs.slice(-4).join(' | ') || '(no logs)';
+  return {
+    ok: false,
+    error: `Simulation failed for ${action} ${amount} ${symbol}: ${errStr}. Last logs: ${tail}`,
+  };
+}
+
 export type BuildAction = 'deposit' | 'borrow' | 'withdraw' | 'repay';
 
 export interface PendingTransaction {
@@ -586,6 +667,11 @@ async function buildPendingTransaction(
 
   const uiAmount = amountLamports.div(mintFactor).toNumber();
   const symbol = reserve.getTokenSymbol();
+
+  const preflight = await preflightSimulate(rpc, base64Txn, wallet, action, symbol, uiAmount);
+  if (!preflight.ok) {
+    return { ok: false, error: preflight.error ?? 'Transaction would fail simulation.' };
+  }
 
   return {
     ok: true,
