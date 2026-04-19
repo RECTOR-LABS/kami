@@ -41,6 +41,30 @@ fastify.post<{ Body: ChatInput }>('/api/chat', async (request, reply) => {
   await new Promise<void>((resolve) => nodeStream.once('end', () => resolve()));
 });
 
+fastify.post('/api/rpc', async (request, reply) => {
+  const upstream = process.env.SOLANA_RPC_URL;
+  if (!upstream) {
+    return reply.code(500).send({ error: 'SOLANA_RPC_URL not configured' });
+  }
+  try {
+    const upstreamRes = await fetch(upstream, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request.body ?? {}),
+    });
+    const text = await upstreamRes.text();
+    return reply
+      .code(upstreamRes.status)
+      .header('Content-Type', upstreamRes.headers.get('content-type') ?? 'application/json')
+      .send(text);
+  } catch (err) {
+    return reply.code(502).send({
+      error: 'Upstream RPC error',
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
 fastify.get('/healthz', async () => ({
   ok: true,
   model: process.env.KAMI_MODEL || 'anthropic/claude-sonnet-4.6',

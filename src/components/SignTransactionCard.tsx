@@ -1,7 +1,44 @@
 import React, { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { VersionedTransaction } from '@solana/web3.js';
+import { VersionedTransaction, type Connection } from '@solana/web3.js';
 import type { PendingTransaction, PendingTxStatus } from '../types';
+
+const POLL_INTERVAL_MS = 2_000;
+const POLL_TIMEOUT_MS = 120_000;
+
+type PollOutcome =
+  | { status: 'confirmed' }
+  | { status: 'failed'; reason: string };
+
+async function pollSignatureStatus(
+  connection: Connection,
+  signature: string,
+  lastValidBlockHeight: number
+): Promise<PollOutcome> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < POLL_TIMEOUT_MS) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    try {
+      const statusResp = await connection.getSignatureStatuses([signature], {
+        searchTransactionHistory: true,
+      });
+      const info = statusResp.value[0];
+      if (info?.err) {
+        return { status: 'failed', reason: `On-chain failure: ${JSON.stringify(info.err)}` };
+      }
+      if (info?.confirmationStatus === 'confirmed' || info?.confirmationStatus === 'finalized') {
+        return { status: 'confirmed' };
+      }
+      const currentHeight = await connection.getBlockHeight('confirmed');
+      if (currentHeight > lastValidBlockHeight) {
+        return { status: 'failed', reason: 'Blockhash expired before confirmation.' };
+      }
+    } catch {
+      // transient RPC hiccup — keep polling
+    }
+  }
+  return { status: 'failed', reason: 'Timed out waiting for confirmation.' };
+}
 
 interface Props {
   transaction: PendingTransaction;
@@ -63,20 +100,13 @@ export default function SignTransactionCard({ transaction }: Props) {
       setStatus('submitted');
 
       const lastValidBlockHeight = Number(transaction.lastValidBlockHeight);
-      const result = await connection.confirmTransaction(
-        {
-          signature: sig,
-          blockhash: transaction.blockhash,
-          lastValidBlockHeight,
-        },
-        'confirmed'
-      );
+      const outcome = await pollSignatureStatus(connection, sig, lastValidBlockHeight);
 
-      if (result.value.err) {
-        setError(`On-chain failure: ${JSON.stringify(result.value.err)}`);
-        setStatus('failed');
-      } else {
+      if (outcome.status === 'confirmed') {
         setStatus('confirmed');
+      } else {
+        setError(outcome.reason);
+        setStatus('failed');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

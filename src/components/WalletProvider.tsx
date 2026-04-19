@@ -2,12 +2,9 @@ import React, { useMemo, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.eitherway.ai';
-
-function getSolanaRpcEndpoint(network = 'devnet') {
-  return network === 'mainnet-beta'
-    ? `${API_BASE_URL}/api/solana/rpc/mainnet`
-    : `${API_BASE_URL}/api/solana/rpc/devnet`;
+function getSolanaRpcEndpoint() {
+  if (typeof window === 'undefined') return '/api/rpc';
+  return new URL('/api/rpc', window.location.origin).toString();
 }
 
 function useSolflareRecommended() {
@@ -125,7 +122,7 @@ function useSolflareRecommended() {
 function InnerProvider({ children }: { children: React.ReactNode }) {
   useSolflareRecommended();
   const wallets = useMemo(() => [], []);
-  const endpoint = useMemo(() => getSolanaRpcEndpoint('mainnet-beta'), []);
+  const endpoint = useMemo(() => getSolanaRpcEndpoint(), []);
 
   const connectionConfig = useMemo(
     () => ({
