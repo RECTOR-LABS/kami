@@ -1,41 +1,67 @@
 # Kami — AI Co-Pilot for Kamino DeFi on Solana
 
-Chat-driven assistant for managing Kamino Finance positions. Ask about your obligations, find yield, simulate health factors, and execute onchain actions with a single prompt.
+Chat-driven assistant for Kamino Finance. Ask in plain English — *"best USDC yield on Kamino"*, *"deposit 100 USDC"*, *"will this borrow liquidate me?"* — and Kami streams a natural-language answer plus, when relevant, a ready-to-sign mainnet transaction.
 
-Built for the [Eitherway Track — Frontier Hackathon 2026](https://superteam.fun/earn/listing/build-a-live-dapp-with-solflare-kamino-dflow-or-quicknode-with-eitherway-app).
+**Live:** [kami.rectorspace.com](https://kami.rectorspace.com)  ·  **Bounty:** [Eitherway Track — Frontier Hackathon 2026](https://superteam.fun/earn/listing/build-a-live-dapp-with-solflare-kamino-dflow-or-quicknode-with-eitherway-app)
 
-## Stack
+## Proof of Life
 
-- **Frontend**: Vite + React 18 + TypeScript + Tailwind
-- **Backend**: Fastify 5 + Vercel AI SDK (`ai`) + `@ai-sdk/openai` pointed at OpenRouter
-- **LLM**: `anthropic/claude-sonnet-4.6` via OpenRouter (swappable via `KAMI_MODEL`)
-- **Wallets**: Phantom, Solflare (via `@solana/wallet-adapter-react`)
-- **DeFi**: `@kamino-finance/klend-sdk` 7.3 on `@solana/kit` v2 (main market)
-- **RPC**: Helius free tier by default; any Solana RPC works via `SOLANA_RPC_URL`
+Deposited live on mainnet through the deployed UI:
 
-## How it works
+- **Tx:** [`5XKeETjGfmj9jEWUNCKcf8u49bY4hEzX2a7JcB4nPxQCBbmZ7ipoNrgTXQMJWXHvKw7Bsera9xxYygLVxLUpUvZE`](https://solscan.io/tx/5XKeETjGfmj9jEWUNCKcf8u49bY4hEzX2a7JcB4nPxQCBbmZ7ipoNrgTXQMJWXHvKw7Bsera9xxYygLVxLUpUvZE)
+- **Action:** 0.5 USDC supplied to Kamino Main Market at ~5.09% APY
+- **Flow:** typed *"Deposit 0.5 USDC into Kamino main market"* → LLM called `findYield` + `buildDeposit` → Phantom signed → on-chain confirmed via client-side polling
 
-The Fastify backend streams responses over SSE using `streamText` + tool-use. The model can call typed tools (e.g. `getPortfolio`) that fetch live Kamino state for the connected wallet; results stream back as typed frames alongside text deltas. The React client renders a compact status badge above the assistant message for each tool call (running / done / failed) and lets the model synthesise the natural-language answer on top.
+## Features
+
+### Read-only tools (no signing)
+
+| Tool | Purpose |
+|------|---------|
+| `getPortfolio` | Connected wallet's live Kamino position: deposits, borrows, APYs, LTV, health factor |
+| `findYield` | Top reserves by live supply / borrow APY, filterable by symbol |
+| `simulateHealth` | Project the user's health factor after a hypothetical deposit/borrow/withdraw/repay |
+
+### Write actions (produce a signable transaction)
+
+`buildDeposit` · `buildBorrow` · `buildWithdraw` · `buildRepay`
+
+Each builds an unsigned v0 transaction server-side (fresh blockhash, proper compute budget, all required account inits for first-time users), then returns it as base64 wire bytes. The UI renders a **Sign & Send** card with the exact action/amount/protocol; the user signs with their wallet, the client submits, and on-chain confirmation is polled over HTTP until `confirmed` or blockhash expiry.
+
+**Preflight built-in:** every `build*` tool runs `simulateTransaction` before returning. If the wallet is short on SOL for account rent, Kami surfaces a precise shortfall — *before* the user burns a failed-tx fee.
+
+## Architecture
+
+- **Frontend** — Vite + React 18 + TypeScript + Tailwind. Wallet flow via `@solana/wallet-adapter-react`.
+- **Chat backend** — `server/chat.ts` exports a Web `ReadableStream` powered by Vercel AI SDK `streamText` + `fullStream`. Consumed by Fastify in local dev (`server/index.ts`) and a Node-style Vercel Function in production (`api/chat.ts`). **One source of truth for tool wiring.**
+- **RPC** — Same-origin `/api/rpc` Vercel Function proxies JSON-RPC to Helius server-side. Keeps the key off the browser, avoids CORS, and sidesteps new-domain reputation issues.
+- **LLM** — `anthropic/claude-sonnet-4.6` via OpenRouter. Swappable via `KAMI_MODEL`.
+- **DeFi** — [`@kamino-finance/klend-sdk`](https://github.com/Kamino-Finance/klend-sdk) 7.3 on [`@solana/kit`](https://github.com/anza-xyz/kit) v2, against the Kamino Main Market.
+- **Transaction build** — `createNoopSigner` + `compileTransaction` + `getBase64EncodedWireTransaction`. The wallet signs on the client; the server never holds a secret key.
+- **Confirmation** — HTTP polling over `getSignatureStatuses` + `getBlockHeight` (Vercel Functions can't upgrade WebSockets, so the default subscription-based `confirmTransaction` would hang).
 
 ## Run locally
 
 ```bash
 pnpm install
-cp .env.example .env.local   # then fill in KAMI_OPENROUTER_API_KEY + SOLANA_RPC_URL
-pnpm dev                      # runs web + api concurrently
+cp .env.example .env.local   # fill KAMI_OPENROUTER_API_KEY + SOLANA_RPC_URL
+pnpm dev                     # web :5173 + api :3001 concurrently
 ```
-
-- Web: http://localhost:5173
-- API: http://localhost:3001 (`/healthz`, `/api/chat`)
 
 ## Scripts
 
-- `pnpm dev` — runs web + api concurrently
+- `pnpm dev` — web + api concurrently
 - `pnpm dev:web` — Vite frontend only
-- `pnpm dev:api` — Fastify backend only (auto-reload via tsx watch)
-- `pnpm build` — production bundle
-- `pnpm preview` — preview the production build
+- `pnpm dev:api` — Fastify backend only (tsx watch)
+- `pnpm build` — production bundle (`tsc -b && vite build`)
+- `pnpm exec tsc -p server/tsconfig.json --noEmit` — typecheck the server + `api/*.ts` Vercel Functions
+
+## Deployment
+
+- Vercel project `rectors-projects/kami`, auto-deploys from `main`.
+- Production env vars: `KAMI_OPENROUTER_API_KEY`, `KAMI_MODEL`, `SOLANA_RPC_URL`.
+- Custom domain `kami.rectorspace.com` served from Vercel with auto-renewed SSL (Cloudflare DNS-only).
 
 ## Origin
 
-Initial scaffold generated by [Eitherway](https://eitherway.ai/) — chat `ca8c8d54-6108-47f0-ac32-94f0642ff792`, Claude Opus 4.6, on 2026-04-19. Tagged as `eitherway-v0`. Subsequent commits extend it with the Fastify backend, Kamino SDK integration, tool-use wiring, and deployment plumbing.
+Initial scaffold generated by [Eitherway](https://eitherway.ai/) on 2026-04-19 (tagged `eitherway-v0`). Everything after is custom: Fastify + Vercel Function backends, Kamino SDK integration, the seven-tool suite, same-origin RPC proxy, preflight simulation, Sign & Send card, and the polling-based confirmation path.
