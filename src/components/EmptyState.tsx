@@ -1,7 +1,9 @@
 import React from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { SolflareWalletName } from '@solana/wallet-adapter-solflare';
+
+const SOLFLARE_WALLET_NAME = 'Solflare';
+const SOLFLARE_INSTALL_URL = 'https://solflare.com/download';
 
 function SolflareLogo({ className }: { className?: string }) {
   return (
@@ -21,9 +23,9 @@ export default function EmptyState() {
 
   const handleConnectSolflare = async () => {
     if (connected || connecting) return;
-    const solflare = wallets.find((w) => w.adapter.name === SolflareWalletName);
+    const solflare = wallets.find((w) => w.adapter.name === SOLFLARE_WALLET_NAME);
     if (!solflare) {
-      setVisible(true);
+      window.open(SOLFLARE_INSTALL_URL, '_blank', 'noopener,noreferrer');
       return;
     }
     try {
