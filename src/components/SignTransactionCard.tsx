@@ -65,6 +65,26 @@ function decodeBase64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
+function describeWalletError(err: unknown): string {
+  if (!err) return 'Unknown wallet error.';
+  if (err instanceof Error) {
+    const parts: string[] = [];
+    if (err.message) parts.push(err.message);
+    if (err.name && err.name !== 'Error' && !err.message?.includes(err.name)) {
+      parts.push(`(${err.name})`);
+    }
+    const cause = (err as Error & { cause?: unknown }).cause;
+    if (cause instanceof Error && cause.message) parts.push(`cause: ${cause.message}`);
+    if (parts.length === 0) {
+      return err.name
+        ? `${err.name} — wallet returned no detail. The popup may have been dismissed or Solflare rejected its preflight.`
+        : 'Wallet returned no detail.';
+    }
+    return parts.join(' ');
+  }
+  return String(err);
+}
+
 export default function SignTransactionCard({ transaction }: Props) {
   const { connection } = useConnection();
   const { publicKey, connected, sendTransaction } = useWallet();
@@ -109,7 +129,9 @@ export default function SignTransactionCard({ transaction }: Props) {
         setStatus('failed');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      // eslint-disable-next-line no-console
+      console.error('[Kami] sendTransaction failed', err);
+      const message = describeWalletError(err);
       setError(message);
       setStatus('failed');
     }
