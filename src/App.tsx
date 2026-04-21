@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import SolanaWalletProvider from './components/WalletProvider';
 import Sidebar from './components/Sidebar';
 import ChatPanel from './components/ChatPanel';
@@ -52,6 +54,8 @@ export default function App() {
   return (
     <SolanaWalletProvider>
       <AppContent />
+      <Analytics />
+      <SpeedInsights />
     </SolanaWalletProvider>
   );
 }
