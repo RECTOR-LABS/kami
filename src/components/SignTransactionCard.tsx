@@ -68,19 +68,18 @@ function decodeBase64ToBytes(base64: string): Uint8Array {
 function describeWalletError(err: unknown): string {
   if (!err) return 'Unknown wallet error.';
   if (err instanceof Error) {
-    const parts: string[] = [];
-    if (err.message) parts.push(err.message);
-    if (err.name && err.name !== 'Error' && !err.message?.includes(err.name)) {
-      parts.push(`(${err.name})`);
-    }
     const cause = (err as Error & { cause?: unknown }).cause;
-    if (cause instanceof Error && cause.message) parts.push(`cause: ${cause.message}`);
-    if (parts.length === 0) {
-      return err.name
-        ? `${err.name} — wallet returned no detail. The popup may have been dismissed or Solflare rejected its preflight.`
-        : 'Wallet returned no detail.';
+    const causeMsg = cause instanceof Error && cause.message ? cause.message : '';
+    if (err.message) {
+      const tag = err.name && err.name !== 'Error' && !err.message.includes(err.name) ? ` (${err.name})` : '';
+      return causeMsg ? `${err.message}${tag} — cause: ${causeMsg}` : `${err.message}${tag}`;
     }
-    return parts.join(' ');
+    if (causeMsg) return `${err.name || 'Error'} — cause: ${causeMsg}`;
+    const friendly =
+      err.name === 'WalletSendTransactionError'
+        ? 'Wallet did not return a reason. Likely the Solflare popup was dismissed, or Solflare\'s own preflight rejected the transaction. Try again, and watch the Solflare window.'
+        : 'Wallet returned no detail.';
+    return err.name ? `${err.name} — ${friendly}` : friendly;
   }
   return String(err);
 }
