@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { SolflareWalletName } from '@solana/wallet-adapter-solflare';
@@ -16,30 +16,21 @@ function SolflareLogo({ className }: { className?: string }) {
 }
 
 export default function EmptyState() {
-  const { connected, connecting, select, wallet, connect } = useWallet();
+  const { connected, connecting, wallets } = useWallet();
   const { setVisible } = useWalletModal();
 
-  useEffect(() => {
-    if (
-      wallet?.adapter.name === SolflareWalletName &&
-      !connected &&
-      !connecting &&
-      wallet.readyState !== 'NotDetected' &&
-      wallet.readyState !== 'Unsupported'
-    ) {
-      connect().catch(() => {
-        // user cancelled or adapter hit a transient error; let them retry via the modal
-      });
-    }
-  }, [wallet, connected, connecting, connect]);
-
-  const handleConnectSolflare = () => {
-    if (connected) return;
-    if (wallet?.adapter.name === SolflareWalletName) {
-      connect().catch(() => setVisible(true));
+  const handleConnectSolflare = async () => {
+    if (connected || connecting) return;
+    const solflare = wallets.find((w) => w.adapter.name === SolflareWalletName);
+    if (!solflare) {
+      setVisible(true);
       return;
     }
-    select(SolflareWalletName);
+    try {
+      await solflare.adapter.connect();
+    } catch {
+      setVisible(true);
+    }
   };
 
   return (

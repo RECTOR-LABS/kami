@@ -9,120 +9,55 @@ function getSolanaRpcEndpoint() {
   return new URL('/api/rpc', window.location.origin).toString();
 }
 
-function useSolflareRecommended() {
+function useWalletModalTheme() {
   useEffect(() => {
-    const STYLE_ID = 'solflare-recommended-styles';
-    if (!document.getElementById(STYLE_ID)) {
-      const style = document.createElement('style');
-      style.id = STYLE_ID;
-      style.textContent = `
-        .wallet-adapter-modal-list li.solflare-recommended {
-          order: -1;
-          border: 1px solid rgba(252, 163, 17, 0.4);
-          border-radius: 8px;
-          background: rgba(252, 163, 17, 0.08);
-          position: relative;
-        }
-        .wallet-adapter-modal-list li.solflare-recommended .wallet-adapter-button {
-          font-weight: 600;
-        }
-        .solflare-recommended-badge {
-          display: inline-flex;
-          align-items: center;
-          background: linear-gradient(135deg, #FCA311, #E8920D);
-          color: #000;
-          font-size: 10px;
-          font-weight: 700;
-          padding: 2px 8px;
-          border-radius: 4px;
-          margin-left: auto;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-        }
-        .solflare-install-banner {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 12px 14px;
-          margin-bottom: 12px;
-          background: rgba(252, 163, 17, 0.06);
-          border: 1px solid rgba(252, 163, 17, 0.3);
-          border-radius: 8px;
-        }
-        .solflare-install-banner a {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          background: linear-gradient(135deg, #FCA311, #E8920D);
-          color: #000;
-          font-size: 11px;
-          font-weight: 700;
-          padding: 6px 14px;
-          border-radius: 6px;
-          text-decoration: none;
-          white-space: nowrap;
-          flex-shrink: 0;
-          transition: opacity 0.15s;
-        }
-        .solflare-install-banner a:hover {
-          opacity: 0.85;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
-    function promoteSolflare(modalList: Element) {
-      const items = modalList.querySelectorAll('li');
-      let solflareItem: HTMLElement | null = null;
-      items.forEach((li) => {
-        const btn = li.querySelector('.wallet-adapter-button');
-        if (btn && btn.textContent?.toLowerCase().includes('solflare')) {
-          solflareItem = li as HTMLElement;
-        }
-      });
-
-      if (solflareItem && !(solflareItem as HTMLElement).classList.contains('solflare-recommended')) {
-        modalList.prepend(solflareItem);
-        (solflareItem as HTMLElement).classList.add('solflare-recommended');
-        const btn = (solflareItem as HTMLElement).querySelector('.wallet-adapter-button');
-        if (btn && !btn.querySelector('.solflare-recommended-badge')) {
-          const badge = document.createElement('span');
-          badge.className = 'solflare-recommended-badge';
-          badge.textContent = 'Recommended';
-          btn.appendChild(badge);
-        }
-      } else if (!solflareItem && !modalList.parentElement?.querySelector('.solflare-install-banner')) {
-        const banner = document.createElement('div');
-        banner.className = 'solflare-install-banner';
-        banner.innerHTML =
-          '<span style="flex:1;font-size:12px;color:#ccc;line-height:1.4"><strong style="color:#fff">Solflare</strong> is the recommended wallet.</span>' +
-          '<a href="https://solflare.com/download" target="_blank" rel="noopener noreferrer">Install</a>';
-        modalList.parentElement?.insertBefore(banner, modalList);
+    const STYLE_ID = 'kami-wallet-modal-theme';
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      .wallet-adapter-modal-wrapper {
+        background: #12121a !important;
+        border: 1px solid #1e1e2e !important;
+        border-radius: 14px !important;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5) !important;
       }
-    }
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType === 1) {
-            const el = node as HTMLElement;
-            const modalList = el.classList?.contains('wallet-adapter-modal-list')
-              ? el
-              : el.querySelector?.('.wallet-adapter-modal-list');
-            if (modalList) promoteSolflare(modalList);
-          }
-        }
+      .wallet-adapter-modal-title {
+        color: #e2e8f0 !important;
+        font-weight: 600 !important;
       }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    const existing = document.querySelector('.wallet-adapter-modal-list');
-    if (existing) promoteSolflare(existing);
-    return () => observer.disconnect();
+      .wallet-adapter-modal-list {
+        gap: 6px !important;
+      }
+      .wallet-adapter-modal-list .wallet-adapter-button {
+        background: #17171f !important;
+        color: #e2e8f0 !important;
+        border: 1px solid #1e1e2e !important;
+        font-weight: 500 !important;
+        border-radius: 10px !important;
+        transition: background 0.15s, border-color 0.15s !important;
+      }
+      .wallet-adapter-modal-list .wallet-adapter-button:hover,
+      .wallet-adapter-modal-list .wallet-adapter-button:not(:disabled):active {
+        background: #1e1e2e !important;
+        color: #ffffff !important;
+      }
+      .wallet-adapter-modal-list-more {
+        color: #64748b !important;
+      }
+      .wallet-adapter-modal-button-close {
+        background: transparent !important;
+      }
+      .wallet-adapter-modal-button-close:hover {
+        background: rgba(255, 255, 255, 0.06) !important;
+      }
+    `;
+    document.head.appendChild(style);
   }, []);
 }
 
 function InnerProvider({ children }: { children: React.ReactNode }) {
-  useSolflareRecommended();
+  useWalletModalTheme();
   const wallets = useMemo(
     () => [new SolflareWalletAdapter({ network: WalletAdapterNetwork.Mainnet })],
     []
