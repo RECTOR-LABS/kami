@@ -10,7 +10,7 @@ Deposited live on mainnet through the deployed UI:
 
 - **Tx:** [`5XKeETjGfmj9jEWUNCKcf8u49bY4hEzX2a7JcB4nPxQCBbmZ7ipoNrgTXQMJWXHvKw7Bsera9xxYygLVxLUpUvZE`](https://solscan.io/tx/5XKeETjGfmj9jEWUNCKcf8u49bY4hEzX2a7JcB4nPxQCBbmZ7ipoNrgTXQMJWXHvKw7Bsera9xxYygLVxLUpUvZE)
 - **Action:** 0.5 USDC supplied to Kamino Main Market at ~5.09% APY
-- **Flow:** typed *"Deposit 0.5 USDC into Kamino main market"* → LLM called `findYield` + `buildDeposit` → Phantom signed → on-chain confirmed via client-side polling
+- **Flow:** typed *"Deposit 0.5 USDC into Kamino main market"* → LLM called `findYield` + `buildDeposit` → signed in wallet → on-chain confirmed via client-side polling
 
 ## Features
 
@@ -32,7 +32,7 @@ Each builds an unsigned v0 transaction server-side (fresh blockhash, proper comp
 
 ## Architecture
 
-- **Frontend** — Vite + React 18 + TypeScript + Tailwind. Wallet flow via `@solana/wallet-adapter-react`.
+- **Frontend** — Vite + React 18 + TypeScript + Tailwind. Featured wallet: [Solflare](https://solflare.com/) via `@solana/wallet-adapter-solflare` (unified extension / web / mobile fallback). Any Solana-wallet-standard wallet also works (Phantom, Backpack, etc.) — the "Use another wallet" option lists everything detected.
 - **Chat backend** — `server/chat.ts` exports a Web `ReadableStream` powered by Vercel AI SDK `streamText` + `fullStream`. Consumed by Fastify in local dev (`server/index.ts`) and a Node-style Vercel Function in production (`api/chat.ts`). **One source of truth for tool wiring.**
 - **RPC** — Same-origin `/api/rpc` Vercel Function proxies JSON-RPC to Helius server-side. Keeps the key off the browser, avoids CORS, and sidesteps new-domain reputation issues.
 - **LLM** — `anthropic/claude-sonnet-4.6` via OpenRouter. Swappable via `KAMI_MODEL`.

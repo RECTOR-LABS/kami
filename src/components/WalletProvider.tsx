@@ -1,6 +1,8 @@
 import React, { useMemo, useEffect } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 
 function getSolanaRpcEndpoint() {
   if (typeof window === 'undefined') return '/api/rpc';
@@ -121,7 +123,10 @@ function useSolflareRecommended() {
 
 function InnerProvider({ children }: { children: React.ReactNode }) {
   useSolflareRecommended();
-  const wallets = useMemo(() => [], []);
+  const wallets = useMemo(
+    () => [new SolflareWalletAdapter({ network: WalletAdapterNetwork.Mainnet })],
+    []
+  );
   const endpoint = useMemo(() => getSolanaRpcEndpoint(), []);
 
   const connectionConfig = useMemo(
