@@ -13,3 +13,4 @@ coverage/
 .idea/
 .vercel
 .remember/
+.claude/
