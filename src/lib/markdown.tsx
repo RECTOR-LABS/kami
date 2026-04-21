@@ -1,88 +1,6 @@
 import React from 'react';
-
-export function renderMarkdown(text: string): React.ReactNode[] {
-  const lines = text.split('\n');
-  const elements: React.ReactNode[] = [];
-  let inCodeBlock = false;
-  let codeLines: string[] = [];
-  let codeLang = '';
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (line.startsWith('```') && !inCodeBlock) {
-      inCodeBlock = true;
-      codeLang = line.slice(3).trim();
-      codeLines = [];
-      continue;
-    }
-
-    if (line.startsWith('```') && inCodeBlock) {
-      inCodeBlock = false;
-      elements.push(
-        <div key={`code-${i}`} className="my-3 rounded-lg overflow-hidden">
-          {codeLang && (
-            <div className="bg-kami-border px-3 py-1.5 text-xs text-kami-muted font-mono">
-              {codeLang}
-            </div>
-          )}
-          <pre className="bg-[#0d0d14] p-3 overflow-x-auto">
-            <code className="text-sm font-mono text-kami-text">{codeLines.join('\n')}</code>
-          </pre>
-        </div>
-      );
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeLines.push(line);
-      continue;
-    }
-
-    if (line.startsWith('### ')) {
-      elements.push(
-        <h3 key={i} className="text-base font-semibold text-white mt-4 mb-2">
-          {renderInline(line.slice(4))}
-        </h3>
-      );
-    } else if (line.startsWith('## ')) {
-      elements.push(
-        <h2 key={i} className="text-lg font-semibold text-white mt-4 mb-2">
-          {renderInline(line.slice(3))}
-        </h2>
-      );
-    } else if (line.startsWith('# ')) {
-      elements.push(
-        <h1 key={i} className="text-xl font-bold text-white mt-4 mb-2">
-          {renderInline(line.slice(2))}
-        </h1>
-      );
-    } else if (line.startsWith('- ') || line.startsWith('* ')) {
-      elements.push(
-        <li key={i} className="ml-4 list-disc text-kami-text leading-relaxed">
-          {renderInline(line.slice(2))}
-        </li>
-      );
-    } else if (/^\d+\.\s/.test(line)) {
-      const content = line.replace(/^\d+\.\s/, '');
-      elements.push(
-        <li key={i} className="ml-4 list-decimal text-kami-text leading-relaxed">
-          {renderInline(content)}
-        </li>
-      );
-    } else if (line.trim() === '') {
-      elements.push(<div key={i} className="h-2" />);
-    } else {
-      elements.push(
-        <p key={i} className="text-kami-text leading-relaxed">
-          {renderInline(line)}
-        </p>
-      );
-    }
-  }
-
-  return elements;
-}
+import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 function isSafeHref(url: string): boolean {
   try {
@@ -93,61 +11,113 @@ function isSafeHref(url: string): boolean {
   }
 }
 
-function renderInline(text: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  const regex = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|\[([^\]]+)\]\(([^)]+)\)/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+const components: Components = {
+  h1: ({ children }) => (
+    <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-lg font-semibold text-white mt-4 mb-2">{children}</h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-base font-semibold text-white mt-4 mb-2">{children}</h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="text-sm font-semibold text-white mt-3 mb-1.5">{children}</h4>
+  ),
+  p: ({ children }) => (
+    <p className="text-kami-text leading-relaxed">{children}</p>
+  ),
+  ul: ({ children }) => (
+    <ul className="list-disc ml-5 space-y-1 text-kami-text leading-relaxed">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="list-decimal ml-5 space-y-1 text-kami-text leading-relaxed">{children}</ol>
+  ),
+  li: ({ children }) => <li>{children}</li>,
+  strong: ({ children }) => (
+    <strong className="font-semibold text-white">{children}</strong>
+  ),
+  em: ({ children }) => <em className="italic text-kami-text">{children}</em>,
+  del: ({ children }) => <del className="text-kami-muted">{children}</del>,
+  hr: () => <hr className="border-kami-border my-3" />,
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-2 border-kami-accent pl-3 my-2 italic text-kami-muted">
+      {children}
+    </blockquote>
+  ),
+  a: ({ href, children }) => {
+    if (!href || !isSafeHref(href)) {
+      return <>{children}</>;
     }
-
-    if (match[1]) {
-      parts.push(
-        <code key={match.index} className="bg-kami-border px-1.5 py-0.5 rounded text-sm font-mono text-purple-300">
-          {match[1].slice(1, -1)}
-        </code>
-      );
-    } else if (match[2]) {
-      parts.push(
-        <strong key={match.index} className="font-semibold text-white">
-          {renderInline(match[2].slice(2, -2))}
-        </strong>
-      );
-    } else if (match[3]) {
-      parts.push(
-        <em key={match.index} className="italic text-kami-text">
-          {renderInline(match[3].slice(1, -1))}
-        </em>
-      );
-    } else if (match[4] !== undefined && match[5] !== undefined) {
-      const label = match[4];
-      const href = match[5];
-      if (isSafeHref(href)) {
-        parts.push(
-          <a
-            key={match.index}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-kami-accent hover:text-kami-accentHover underline underline-offset-2 break-words"
-          >
-            {label}
-          </a>
-        );
-      } else {
-        parts.push(match[0]);
-      }
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-kami-accent hover:text-kami-accentHover underline underline-offset-2 break-words"
+      >
+        {children}
+      </a>
+    );
+  },
+  code: ({ className, children }) => {
+    const isBlock = typeof className === 'string' && className.startsWith('language-');
+    if (isBlock) {
+      return <code className={`${className} text-sm font-mono text-kami-text`}>{children}</code>;
     }
+    return (
+      <code className="bg-kami-border px-1.5 py-0.5 rounded text-sm font-mono text-purple-300">
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }) => {
+    const codeChild = React.Children.toArray(children).find(
+      (c): c is React.ReactElement<{ className?: string }> =>
+        React.isValidElement(c) && c.type === 'code',
+    );
+    const className = codeChild?.props?.className ?? '';
+    const lang = className.startsWith('language-') ? className.slice('language-'.length) : '';
+    return (
+      <div className="my-3 rounded-lg overflow-hidden">
+        {lang && (
+          <div className="bg-kami-border px-3 py-1.5 text-xs text-kami-muted font-mono">
+            {lang}
+          </div>
+        )}
+        <pre className="bg-[#0d0d14] p-3 overflow-x-auto">{children}</pre>
+      </div>
+    );
+  },
+  table: ({ children }) => (
+    <div className="my-3 overflow-x-auto rounded-lg border border-kami-border">
+      <table className="min-w-full text-sm border-collapse">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-kami-border/60">{children}</thead>,
+  tbody: ({ children }) => (
+    <tbody className="divide-y divide-kami-border">{children}</tbody>
+  ),
+  tr: ({ children }) => <tr>{children}</tr>,
+  th: ({ children, style }) => (
+    <th
+      className="px-3 py-2 text-left font-semibold text-white border-b border-kami-border"
+      style={style}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children, style }) => (
+    <td className="px-3 py-2 text-kami-text align-top" style={style}>
+      {children}
+    </td>
+  ),
+};
 
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts.length === 1 ? parts[0] : <>{parts}</>;
+export function renderMarkdown(text: string): React.ReactNode {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      {text}
+    </ReactMarkdown>
+  );
 }
