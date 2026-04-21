@@ -481,12 +481,20 @@ async function preflightSimulate(
     };
   }
 
-  const errStr = typeof err === 'string' ? err : JSON.stringify(err);
+  const errStr = typeof err === 'string' ? err : safeStringify(err);
   const tail = logs.slice(-4).join(' | ') || '(no logs)';
   return {
     ok: false,
     error: `Simulation failed for ${action} ${amount} ${symbol}: ${errStr}. Last logs: ${tail}`,
   };
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+  } catch {
+    return String(value);
+  }
 }
 
 export type BuildAction = 'deposit' | 'borrow' | 'withdraw' | 'repay';
