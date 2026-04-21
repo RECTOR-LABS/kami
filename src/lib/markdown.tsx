@@ -72,12 +72,12 @@ const components: Components = {
     );
   },
   pre: ({ children }) => {
-    const codeChild = React.Children.toArray(children).find(
-      (c): c is React.ReactElement<{ className?: string }> =>
-        React.isValidElement(c) && c.type === 'code',
-    );
-    const className = codeChild?.props?.className ?? '';
-    const lang = className.startsWith('language-') ? className.slice('language-'.length) : '';
+    const first = React.Children.toArray(children)[0];
+    const className = React.isValidElement<{ className?: string }>(first)
+      ? (first.props.className ?? '')
+      : '';
+    const langClass = className.split(/\s+/).find((c) => c.startsWith('language-'));
+    const lang = langClass ? langClass.slice('language-'.length) : '';
     return (
       <div className="my-3 rounded-lg overflow-hidden">
         {lang && (
