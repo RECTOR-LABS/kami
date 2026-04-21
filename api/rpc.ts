@@ -4,12 +4,47 @@ export const config = {
   maxDuration: 30,
 };
 
-async function readBody(req: IncomingMessage): Promise<Buffer> {
+const MAX_BODY_BYTES = 64 * 1024;
+
+const DENIED_METHODS = new Set([
+  'getProgramAccounts',
+  'getSignaturesForAddress',
+  'getConfirmedSignaturesForAddress2',
+  'getConfirmedBlock',
+  'getBlock',
+  'getBlocks',
+  'getBlocksWithLimit',
+  'getBlockProduction',
+  'getInflationReward',
+  'getRecentPerformanceSamples',
+  'getRecentPrioritizationFees',
+  'getLargestAccounts',
+  'getSupply',
+  'getVoteAccounts',
+  'getClusterNodes',
+]);
+
+async function readBody(req: IncomingMessage): Promise<Buffer | null> {
   const chunks: Buffer[] = [];
+  let total = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > MAX_BODY_BYTES) return null;
+    chunks.push(buf);
   }
   return Buffer.concat(chunks);
+}
+
+function deniedMethodIn(payload: unknown): string | null {
+  const calls = Array.isArray(payload) ? payload : [payload];
+  for (const c of calls) {
+    if (c && typeof c === 'object' && typeof (c as { method?: unknown }).method === 'string') {
+      const method = (c as { method: string }).method;
+      if (DENIED_METHODS.has(method)) return method;
+    }
+  }
+  return null;
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -30,6 +65,35 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   const body = await readBody(req);
+  if (body === null) {
+    res.statusCode = 413;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: `Body exceeds ${MAX_BODY_BYTES} bytes` }));
+    return;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body.toString('utf-8'));
+  } catch {
+    res.statusCode = 400;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+    return;
+  }
+
+  const denied = deniedMethodIn(parsed);
+  if (denied) {
+    res.statusCode = 403;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        error: `RPC method "${denied}" is not allowed through this proxy`,
+        hint: 'Use a public RPC or your own Helius key for heavy historical queries.',
+      }),
+    );
+    return;
+  }
 
   try {
     const upstreamRes = await fetch(upstream, {
