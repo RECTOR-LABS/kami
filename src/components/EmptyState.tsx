@@ -1,6 +1,7 @@
 import React from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { TrendingUp, ArrowLeftRight, Wallet, ShieldCheck, type LucideIcon } from 'lucide-react';
 
 const SOLFLARE_WALLET_NAME = 'Solflare';
 const SOLFLARE_INSTALL_URL = 'https://solflare.com/download';
@@ -47,19 +48,21 @@ export default function EmptyState() {
           simulate health factors, or deposit / borrow / withdraw — all in plain English.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
-          {[
-            { icon: '📊', title: 'Live Yields', desc: 'Find best APYs on Kamino' },
-            { icon: '🔄', title: 'Build & Sign', desc: 'Deposit, borrow, withdraw, repay' },
-            { icon: '💰', title: 'Portfolio', desc: 'Your Kamino positions + APY' },
-            { icon: '🔐', title: 'Health Sim', desc: 'Liquidation-risk checks' },
-          ].map((item) => (
+          {(
+            [
+              { Icon: TrendingUp, title: 'Live Yields', desc: 'Find best APYs on Kamino' },
+              { Icon: ArrowLeftRight, title: 'Build & Sign', desc: 'Deposit, borrow, withdraw, repay' },
+              { Icon: Wallet, title: 'Portfolio', desc: 'Your Kamino positions + APY' },
+              { Icon: ShieldCheck, title: 'Health Sim', desc: 'Liquidation-risk checks' },
+            ] satisfies Array<{ Icon: LucideIcon; title: string; desc: string }>
+          ).map(({ Icon, title, desc }) => (
             <div
-              key={item.title}
+              key={title}
               className="p-3 rounded-xl border border-kami-border bg-kami-surface/50 hover:bg-kami-surface transition-colors"
             >
-              <div className="text-lg mb-1">{item.icon}</div>
-              <div className="text-sm font-medium text-white">{item.title}</div>
-              <div className="text-xs text-kami-muted">{item.desc}</div>
+              <Icon className="w-5 h-5 text-kami-accent mb-2" aria-hidden="true" />
+              <div className="text-sm font-medium text-white">{title}</div>
+              <div className="text-xs text-kami-muted">{desc}</div>
             </div>
           ))}
         </div>
