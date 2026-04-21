@@ -8,10 +8,10 @@ interface Props {
 }
 
 const SUGGESTIONS = [
-  'What is the current price of SOL?',
-  'How do I swap SOL for USDC on Jupiter?',
-  'Explain liquid staking on Solana',
-  'What are the best yield opportunities right now?',
+  'Show me my Kamino portfolio',
+  "What's the best USDC supply APY on Kamino right now?",
+  'Deposit 0.1 USDC into Kamino',
+  'Simulate my health factor if I borrow 5 USDC',
 ];
 
 export default function ChatInput({ onSend, onStop, isStreaming, disabled }: Props) {
@@ -45,7 +45,7 @@ export default function ChatInput({ onSend, onStop, isStreaming, disabled }: Pro
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
-              onClick={() => setInput(s)}
+              onClick={() => onSend(s)}
               className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full border border-kami-border text-kami-muted hover:text-kami-text hover:border-kami-accent/40 transition-colors whitespace-nowrap"
             >
               {s}
