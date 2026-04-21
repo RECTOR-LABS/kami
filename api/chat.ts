@@ -1,18 +1,43 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
+import { z } from 'zod';
 import { createChatStream } from '../server/chat.js';
 
 export const config = {
   maxDuration: 60,
 };
 
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+const MAX_BODY_BYTES = 256 * 1024;
+const MAX_MESSAGES = 50;
+const MAX_MESSAGE_CHARS = 8000;
+
+const base58Re = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const chatBodySchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().max(MAX_MESSAGE_CHARS, `message exceeds ${MAX_MESSAGE_CHARS} chars`),
+      }),
+    )
+    .min(1, 'messages array is required')
+    .max(MAX_MESSAGES, `at most ${MAX_MESSAGES} messages per request`),
+  walletAddress: z
+    .union([z.string().regex(base58Re, 'walletAddress must be base58 32-44 chars'), z.null()])
+    .optional(),
+});
+
+async function readBody(req: IncomingMessage): Promise<Buffer | null> {
   const chunks: Buffer[] = [];
+  let total = 0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > MAX_BODY_BYTES) return null;
+    chunks.push(buf);
   }
-  if (chunks.length === 0) return null;
-  return JSON.parse(Buffer.concat(chunks).toString('utf-8'));
+  return Buffer.concat(chunks);
 }
 
 function sendJson(res: ServerResponse, status: number, payload: unknown) {
@@ -23,6 +48,7 @@ function sendJson(res: ServerResponse, status: number, payload: unknown) {
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     sendJson(res, 405, { error: 'Method not allowed' });
     return;
   }
@@ -33,28 +59,30 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  let body: unknown;
+  const raw = await readBody(req);
+  if (raw === null) {
+    sendJson(res, 413, { error: `Body exceeds ${MAX_BODY_BYTES} bytes` });
+    return;
+  }
+
+  let parsed: unknown;
   try {
-    body = await readJsonBody(req);
+    parsed = raw.length === 0 ? null : JSON.parse(raw.toString('utf-8'));
   } catch {
     sendJson(res, 400, { error: 'Invalid JSON body' });
     return;
   }
 
-  if (typeof body !== 'object' || body === null) {
-    sendJson(res, 400, { error: 'Invalid body shape' });
+  const validation = chatBodySchema.safeParse(parsed);
+  if (!validation.success) {
+    sendJson(res, 400, {
+      error: 'Invalid request body',
+      issues: validation.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+    });
     return;
   }
 
-  const { messages, walletAddress } = body as {
-    messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
-    walletAddress?: string | null;
-  };
-
-  if (!Array.isArray(messages) || messages.length === 0) {
-    sendJson(res, 400, { error: 'messages array is required' });
-    return;
-  }
+  const { messages, walletAddress } = validation.data;
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -65,11 +93,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   const webStream = createChatStream(
     { messages, walletAddress: walletAddress ?? null },
-    apiKey
+    apiKey,
   );
 
   const nodeStream = Readable.fromWeb(
-    webStream as unknown as Parameters<typeof Readable.fromWeb>[0]
+    webStream as unknown as Parameters<typeof Readable.fromWeb>[0],
   );
 
   await new Promise<void>((resolve, reject) => {
