@@ -13,21 +13,10 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  const origin = req.headers.origin ?? '';
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Vary', 'Origin');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 204;
-    res.end();
-    return;
-  }
-
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Allow', 'POST');
     res.end(JSON.stringify({ error: 'Method not allowed' }));
     return;
   }
