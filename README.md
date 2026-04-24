@@ -32,6 +32,10 @@ Each builds an unsigned v0 transaction server-side (fresh blockhash, proper comp
 
 ## Architecture
 
+<p align="center">
+  <img src="./assets/architecture.svg" alt="Kami architecture — plain English to signed mainnet tx" width="100%"/>
+</p>
+
 - **Frontend** — Vite + React 18 + TypeScript + Tailwind. Featured wallet: [Solflare](https://solflare.com/) via `@solana/wallet-adapter-solflare` (unified extension / web / mobile fallback). Any Solana-wallet-standard wallet also works (Phantom, Backpack, etc.) — the "Use another wallet" option lists everything detected.
 - **Chat backend** — `server/chat.ts` exports a Web `ReadableStream` powered by Vercel AI SDK `streamText` + `fullStream`. Consumed by Fastify in local dev (`server/index.ts`) and a Node-style Vercel Function in production (`api/chat.ts`). **One source of truth for tool wiring.**
 - **RPC** — Same-origin `/api/rpc` Vercel Function proxies JSON-RPC to Helius server-side. Keeps the key off the browser, avoids CORS, and sidesteps new-domain reputation issues.

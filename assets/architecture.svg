@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-label="Kami architecture diagram">
+  <defs>
+    <style>
+      .bg { fill: #0a0a0f; }
+      .panel { fill: #12121a; stroke: #1e1e2e; stroke-width: 1.5; }
+      .panel-accent { fill: #12121a; stroke: #7c3aed; stroke-width: 1.75; }
+      .panel-success { fill: #12121a; stroke: #10b981; stroke-width: 1.75; }
+      .panel-muted { fill: #0f0f16; stroke: #1e1e2e; stroke-width: 1.25; }
+      .label-strong { fill: #ffffff; font: 600 17px 'Inter', system-ui, sans-serif; }
+      .label { fill: #e2e8f0; font: 500 14px 'Inter', system-ui, sans-serif; }
+      .label-sm { fill: #94a3b8; font: 400 12px 'Inter', system-ui, sans-serif; }
+      .label-mono { fill: #c4b5fd; font: 500 12.5px 'JetBrains Mono', ui-monospace, monospace; }
+      .label-mono-green { fill: #6ee7b7; font: 500 12.5px 'JetBrains Mono', ui-monospace, monospace; }
+      .title { fill: #ffffff; font: 700 22px 'Inter', system-ui, sans-serif; }
+      .stage { fill: #7c3aed; font: 700 11px 'Inter', system-ui, sans-serif; letter-spacing: 1.5px; }
+      .stage-green { fill: #10b981; font: 700 11px 'Inter', system-ui, sans-serif; letter-spacing: 1.5px; }
+      .flow-arrow { stroke: #7c3aed; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .flow-arrow-return { stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; marker-end: url(#arrow-muted); }
+      .annotation { fill: #64748b; font: 400 11px 'Inter', system-ui, sans-serif; font-style: italic; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1200" height="720"/>
+
+  <text class="title" x="600" y="40" text-anchor="middle">Kami — AI Co-Pilot for Kamino DeFi</text>
+  <text class="label-sm" x="600" y="62" text-anchor="middle">Plain English → signed mainnet tx, end-to-end on Solana</text>
+
+  <!-- STAGE LABELS -->
+  <text class="stage" x="150" y="110" text-anchor="middle">CLIENT</text>
+  <text class="stage" x="450" y="110" text-anchor="middle">VERCEL EDGE</text>
+  <text class="stage" x="750" y="110" text-anchor="middle">DEFI LOGIC</text>
+  <text class="stage-green" x="1050" y="110" text-anchor="middle">SOLANA MAINNET</text>
+
+  <!-- CLIENT: Kami UI -->
+  <rect class="panel-accent" x="50" y="135" width="200" height="140" rx="10"/>
+  <text class="label-strong" x="150" y="170" text-anchor="middle">Kami UI</text>
+  <text class="label-sm" x="150" y="192" text-anchor="middle">Vite · React 18 · TS</text>
+  <text class="label-sm" x="150" y="210" text-anchor="middle">Tailwind · Lucide</text>
+  <line x1="75" y1="225" x2="225" y2="225" stroke="#1e1e2e" stroke-width="1"/>
+  <text class="label-mono" x="150" y="245" text-anchor="middle">streamText</text>
+  <text class="label-mono" x="150" y="262" text-anchor="middle">AI SDK fullStream</text>
+
+  <!-- CLIENT: Wallet Standard -->
+  <rect class="panel" x="50" y="295" width="200" height="110" rx="10"/>
+  <text class="label-strong" x="150" y="328" text-anchor="middle">Wallet Standard</text>
+  <text class="label-sm" x="150" y="350" text-anchor="middle">Solflare (featured)</text>
+  <text class="label-sm" x="150" y="368" text-anchor="middle">Phantom · Backpack · …</text>
+  <text class="label-sm" x="150" y="390" text-anchor="middle">signs tx · submits</text>
+
+  <!-- VERCEL EDGE: /api/chat -->
+  <rect class="panel-accent" x="350" y="135" width="200" height="140" rx="10"/>
+  <text class="label-strong" x="450" y="170" text-anchor="middle">/api/chat</text>
+  <text class="label-sm" x="450" y="192" text-anchor="middle">Node-style Fn</text>
+  <text class="label-sm" x="450" y="210" text-anchor="middle">zod-validated body</text>
+  <line x1="375" y1="225" x2="525" y2="225" stroke="#1e1e2e" stroke-width="1"/>
+  <text class="label-mono" x="450" y="245" text-anchor="middle">OpenRouter LLM</text>
+  <text class="label-mono" x="450" y="262" text-anchor="middle">claude-sonnet-4.6</text>
+
+  <!-- VERCEL EDGE: /api/rpc -->
+  <rect class="panel-accent" x="350" y="295" width="200" height="130" rx="10"/>
+  <text class="label-strong" x="450" y="330" text-anchor="middle">/api/rpc</text>
+  <text class="label-sm" x="450" y="352" text-anchor="middle">same-origin only</text>
+  <text class="label-sm" x="450" y="370" text-anchor="middle">15-method denylist</text>
+  <text class="label-sm" x="450" y="388" text-anchor="middle">64 KiB body cap</text>
+  <text class="label-mono" x="450" y="410" text-anchor="middle">→ Helius RPC</text>
+
+  <!-- DEFI LOGIC: tools -->
+  <rect class="panel-accent" x="650" y="135" width="200" height="290" rx="10"/>
+  <text class="label-strong" x="750" y="170" text-anchor="middle">7 Tools</text>
+  <text class="label-sm" x="750" y="190" text-anchor="middle">(AI SDK tool() defs)</text>
+  <line x1="675" y1="205" x2="825" y2="205" stroke="#1e1e2e" stroke-width="1"/>
+  <text class="label-mono" x="750" y="225" text-anchor="middle">getPortfolio</text>
+  <text class="label-mono" x="750" y="243" text-anchor="middle">findYield</text>
+  <text class="label-mono" x="750" y="261" text-anchor="middle">simulateHealth</text>
+  <line x1="675" y1="275" x2="825" y2="275" stroke="#1e1e2e" stroke-width="1"/>
+  <text class="label-mono" x="750" y="295" text-anchor="middle">buildDeposit</text>
+  <text class="label-mono" x="750" y="313" text-anchor="middle">buildBorrow</text>
+  <text class="label-mono" x="750" y="331" text-anchor="middle">buildRepay</text>
+  <text class="label-mono" x="750" y="349" text-anchor="middle">buildWithdraw</text>
+  <line x1="675" y1="363" x2="825" y2="363" stroke="#1e1e2e" stroke-width="1"/>
+  <text class="label-sm" x="750" y="383" text-anchor="middle">klend-sdk 7.3 · @solana/kit v2</text>
+  <text class="label-sm" x="750" y="401" text-anchor="middle">createNoopSigner</text>
+  <text class="label-sm" x="750" y="418" text-anchor="middle">compileTransaction</text>
+
+  <!-- SOLANA: Kamino Main Market -->
+  <rect class="panel-success" x="950" y="135" width="200" height="140" rx="10"/>
+  <text class="label-strong" x="1050" y="170" text-anchor="middle">Kamino</text>
+  <text class="label-strong" x="1050" y="192" text-anchor="middle">Main Market</text>
+  <line x1="975" y1="207" x2="1125" y2="207" stroke="#1e1e2e" stroke-width="1"/>
+  <text class="label-mono-green" x="1050" y="227" text-anchor="middle">Reserves · Obligation</text>
+  <text class="label-sm" x="1050" y="247" text-anchor="middle">Supply · Borrow</text>
+  <text class="label-sm" x="1050" y="265" text-anchor="middle">Health Factor · LTV</text>
+
+  <!-- SOLANA: RPC -->
+  <rect class="panel-success" x="950" y="295" width="200" height="110" rx="10"/>
+  <text class="label-strong" x="1050" y="328" text-anchor="middle">Helius RPC</text>
+  <text class="label-sm" x="1050" y="350" text-anchor="middle">sendTransaction</text>
+  <text class="label-sm" x="1050" y="368" text-anchor="middle">simulateTransaction</text>
+  <text class="label-sm" x="1050" y="386" text-anchor="middle">getSignatureStatuses</text>
+
+  <!-- FLOW ARROWS -->
+  <!-- UI → /api/chat -->
+  <path class="flow-arrow" d="M 250 200 L 348 200"/>
+  <text class="label-sm" x="299" y="192" text-anchor="middle">POST</text>
+  <!-- /api/chat → Tools -->
+  <path class="flow-arrow" d="M 550 220 L 648 220"/>
+  <text class="label-sm" x="599" y="212" text-anchor="middle">tool call</text>
+  <!-- Tools → /api/rpc (read path) -->
+  <path class="flow-arrow" d="M 650 330 L 552 350"/>
+  <text class="label-sm" x="605" y="332" text-anchor="middle">RPC</text>
+  <!-- /api/rpc → Helius -->
+  <path class="flow-arrow" d="M 550 350 L 948 350"/>
+  <!-- Tools → Kamino -->
+  <path class="flow-arrow" d="M 850 205 L 948 205"/>
+  <text class="label-sm" x="899" y="197" text-anchor="middle">reads on-chain</text>
+  <!-- Wallet → /api/rpc (sendTransaction) -->
+  <path class="flow-arrow" d="M 250 350 L 348 350"/>
+  <text class="label-sm" x="299" y="342" text-anchor="middle">signed tx</text>
+  <!-- /api/chat → UI (stream) -->
+  <path class="flow-arrow-return" d="M 348 245 L 250 245"/>
+  <text class="annotation" x="299" y="260" text-anchor="middle">SSE stream</text>
+  <!-- UI → Wallet (handoff) -->
+  <path class="flow-arrow-return" d="M 150 275 L 150 294"/>
+  <!-- Helius → Kamino (TX lands) -->
+  <path class="flow-arrow-return" d="M 1050 295 L 1050 278"/>
+
+  <!-- BOTTOM: user prompt example -->
+  <rect class="panel-muted" x="50" y="500" width="1100" height="180" rx="12"/>
+  <text class="label-strong" x="75" y="535">Example flow · user types <tspan class="label-mono">"Deposit 5 USDC into Kamino"</tspan></text>
+
+  <text class="label" x="75" y="570">1.</text>
+  <text class="label-sm" x="100" y="570">UI streams prompt to <tspan class="label-mono">/api/chat</tspan> →</text>
+  <text class="label" x="75" y="590">2.</text>
+  <text class="label-sm" x="100" y="590">LLM calls <tspan class="label-mono">buildDeposit</tspan> — klend-sdk compiles v0 tx, preflight simulates →</text>
+  <text class="label" x="75" y="610">3.</text>
+  <text class="label-sm" x="100" y="610">Base64 wire tx streams back, UI renders a <tspan class="label-mono">Sign &amp; Send</tspan> card →</text>
+  <text class="label" x="75" y="630">4.</text>
+  <text class="label-sm" x="100" y="630">Wallet signs client-side → <tspan class="label-mono">/api/rpc</tspan> forwards to Helius · <tspan class="label-mono">sendTransaction</tspan> →</text>
+  <text class="label" x="75" y="650">5.</text>
+  <text class="label-sm" x="100" y="650">UI polls <tspan class="label-mono">getSignatureStatuses</tspan> over HTTP until <tspan class="label-mono-green">confirmed</tspan> (no WS — Vercel can't upgrade) →</text>
+  <text class="label" x="75" y="670">6.</text>
+  <text class="label-sm" x="100" y="670">Card flips to <tspan class="label-mono-green">Confirmed on mainnet</tspan> with a Solscan link.</text>
+</svg>
