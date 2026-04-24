@@ -22,7 +22,7 @@ UI: `kami.rectorspace.com` landing — "Welcome to Kami" tiles visible, 4 sugges
 
 Action: click **Connect with Solflare** → Solflare extension popup → Approve. Wallet badge `HciZ..25En` appears top-right, tiles stay, CTA disappears.
 
-VO: *"Connect a Solana wallet — Solflare, Phantom, or anything Wallet-Standard compatible. No new accounts, no sign-in forms. The wallet is the auth."*
+VO: *"Connect a Solana wallet — Solflare recommended, or anything Wallet-Standard compatible. No new accounts, no sign-in forms. The wallet is the auth."*
 
 ## Shot 3 — Find yield (0:40–0:55)
 
