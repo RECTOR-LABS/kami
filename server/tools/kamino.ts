@@ -472,12 +472,12 @@ async function preflightSimulate(
       const approxTotal = Number(balanceLamports) + shortfall;
       return {
         ok: false,
-        error: `Insufficient SOL for rent on this ${action}. The wallet would run out mid-transaction when setting up a required Kamino account. Current balance: ${formatSol(balanceLamports)} SOL. Estimated total needed: ~${formatSol(approxTotal)} SOL (short by ~${formatSol(shortfall)} SOL). Good news: most of this is refundable account rent, returned when the Kamino position is closed.`,
+        error: `Insufficient SOL for rent on this ${action}. The wallet would run out mid-transaction when setting up a required Kamino account. Current balance: ${formatSol(balanceLamports)} SOL. Estimated total needed: ~${formatSol(approxTotal)} SOL (short by ~${formatSol(shortfall)} SOL). Heads up: this is a one-time account setup cost per Kamino market — klend does not currently expose a close_obligation instruction, so the rent stays locked in your Kamino accounts.`,
       };
     }
     return {
       ok: false,
-      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL of refundable rent on top of your deposit amount. Current balance: ${formatSol(balanceLamports)} SOL.`,
+      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL on top of your deposit amount — a one-time setup cost per market that stays locked (klend does not currently expose a close_obligation instruction). Current balance: ${formatSol(balanceLamports)} SOL.`,
     };
   }
 

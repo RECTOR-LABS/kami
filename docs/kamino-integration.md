@@ -135,7 +135,7 @@ From the Kamino track brief: *"Uses Kamino as a core engine of the product."*
 
 - **Main market only.** Kami currently binds to the Kamino Main Market at `7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`. Other markets (Jito, Multiply, etc.) would need per-market reserve symbol disambiguation.
 - **Klend only.** No kliquidity (concentrated LP vault) or Multiply (one-click leverage) integration yet. The klend tools provide most of the user-facing surface; those products extend it.
-- **No obligation close.** Kamino's obligation account stays open with ~0.024 SOL locked rent after withdraw-all + repay-all. Users currently close via [app.kamino.finance](https://app.kamino.finance/) to reclaim rent. A Kami `closeObligation` tool is a natural extension (traced in the session memory).
+- **No obligation close path.** Kamino's obligation account stays open with ~0.022 SOL of rent permanently locked after withdraw-all + repay-all. Verified empirically (2026-04-25): neither Kamino's own UI nor the klend program exposes a `close_obligation` instruction — IDL scan = 51 instructions with zero close candidates; Kamino's Portfolio UI has no close affordance; Transaction History on the test wallet shows only Deposit / Withdraw / Borrow / Repay types across its entire lifetime. This is a Kamino protocol-level gap, not a Kami scope item — a `closeObligation` Kami tool is technically impossible until Kamino ships the instruction upstream. (ATAs for cTokens remain recoverable via standard SPL `close_account` once emptied, ~0.002 SOL each.)
 - **Oracle price display is advisory.** `findYield` surfaces `reserve.getOracleMarketPrice()` but Kami does not independently validate Scope oracle freshness; the SDK handles that.
 
 ---
