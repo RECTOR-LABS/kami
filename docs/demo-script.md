@@ -1,95 +1,102 @@
-# Kami Demo — Shot List & Script (60–90 s)
+# Kami Demo — Shot List & Script (2:30–2:50)
 
-Target length: 60–90 seconds. Recorded on `kami.rectorspace.com`, Solflare (featured wallet), Kamino Main Market mainnet.
+Target length: **2 min 30 s – 2 min 50 s** (bounty requires 2–3 minutes). Recorded on `kami.rectorspace.com`, Solflare (featured wallet), Kamino Main Market mainnet.
 
-Hero beat: **plain English → signed mainnet tx, every time**. The "wow" moment is the LLM's NetValueRemainingTooSmall auto-recovery in Shot 6 — surface it explicitly in the voice-over.
+Hero beat: **plain English → signed mainnet tx, every time**. The "wow" moment is the LLM's NetValueRemainingTooSmall auto-recovery in Shot 7 — surface it explicitly in the voice-over.
 
-## Cold open (0:00–0:05)
+## Cold open (0:00–0:10)
 
-Shot: architecture.svg full-frame, 3-second zoom-in from the SOLANA MAINNET stage to the CLIENT stage, reversing the data flow.
+Shot: `architecture.svg` full-frame, 3-second zoom-in from the SOLANA MAINNET stage to the CLIENT stage, reversing the data flow. Title-card overlay: **"Kami"** fades in at 0:04, subtitle **"A conversation-driven co-pilot for Kamino Finance on Solana"** fades in at 0:07.
 
-VO: "Kami. Type what you want. Kamino does it. Mainnet."
+VO: *"Kami. Type what you want. Kamino does it. Mainnet."*
 
-## Shot 1 — Welcome + connect (0:05–0:15)
+## Shot 1 — What is Kami (0:10–0:25)
+
+Shot: fast montage — split-screen of the Kamino app dashboard on the left (busy, lots of tables and numbers) fading to black, then fading to the Kami chat UI on the right (clean, single input).
+
+VO: *"DeFi dashboards assume you already know what you're doing. Kami flips that: you describe what you want — find yield, check health, deposit, borrow, repay — and an AI co-pilot orchestrates the real Kamino protocol to do it. Seven tools. One chat box. Live Solana mainnet."*
+
+## Shot 2 — Connect (0:25–0:40)
 
 UI: `kami.rectorspace.com` landing — "Welcome to Kami" tiles visible, 4 suggestion chips along the bottom, "Connect with Solflare" orange CTA center.
 
-Action: click "Connect with Solflare" → Solflare extension popup → Approve. Wallet badge `HciZ..25En` appears top-right, tiles stay, CTA disappears.
+Action: click **Connect with Solflare** → Solflare extension popup → Approve. Wallet badge `HciZ..25En` appears top-right, tiles stay, CTA disappears.
 
-VO: "Connect a Solana wallet — Solflare, Phantom, or anything Wallet-Standard compatible. No new accounts."
+VO: *"Connect a Solana wallet — Solflare, Phantom, or anything Wallet-Standard compatible. No new accounts, no sign-in forms. The wallet is the auth."*
 
-## Shot 2 — Find yield (0:15–0:25)
+## Shot 3 — Find yield (0:40–0:55)
 
 Action: click the chip **"What's the best USDC supply APY on Kamino right now?"** → it auto-submits.
 
 UI: tool-call badges render: `Calling findYield` (green). Assistant streams a markdown **table** with columns [Market · Reserve · Supply APY · Borrow APY · Utilization]. Top row highlighted.
 
-VO: "Ask in plain English. Kami calls `findYield`, streams the live reserve table — real APYs, real utilization, live."
+VO: *"Ask in plain English. Kami calls `findYield` — a thin wrapper over Kamino's klend SDK — streams the live reserve table. Real APYs from the on-chain Scope oracle. Real utilization. Main Market, live."*
 
-## Shot 3 — Simulate risk (0:25–0:35)
+## Shot 4 — Simulate risk (0:55–1:15)
 
 Action: type **"Will borrowing 0.05 USDC liquidate me if I deposit 0.2 USDC first?"** → send.
 
-UI: tool-call badges `getPortfolio` → `simulateHealth`. Assistant replies with Health Factor 3.60, LTV 25%, LLT 85%, highlighted "SAFE" verdict.
+UI: tool-call badges `getPortfolio` → `simulateHealth`. Assistant replies with Health Factor 3.60, LTV 25%, LLT 85%, highlighted "SAFE" verdict. A small aside flags "projected health factor 3.60 — no liquidation risk."
 
-VO: "Before you touch anything: simulate. Kami projects your health factor, LTV, and liquidation thresholds — so you know before you sign."
+VO: *"Before you touch anything — simulate. Kami reads your current obligation, projects the health factor after the hypothetical action, flags anything that would drop you below 1.1 or trip a liquidation. The LLM's system prompt forces this step before any borrow."*
 
-## Shot 4 — Deposit (0:35–0:50)
+## Shot 5 — Deposit (1:15–1:40)
 
 Action: type **"Deposit 5 USDC into Kamino"** → send.
 
-UI: `Calling buildDeposit`. Card slides in: "Deposit 5 USDC on Kamino main market" with Action / Amount / Protocol / Reserve. Purple "Sign & Send" button.
+UI: `Calling buildDeposit`. Card slides in: **Deposit 5 USDC on Kamino main market** with Action / Amount / Protocol / Reserve. Purple **Sign & Send** button.
 
 Action: click **Sign & Send** → Solflare popup → Approve.
 
 UI: card flips — "Submitted — waiting for confirmation…" spinner → "Confirmed on mainnet" green pill → Solscan link.
 
-VO: "One sentence. Kami builds a versioned transaction, preflights on-chain, surfaces the `Sign & Send` card. Wallet signs client-side — server never holds a key. Confirmed on mainnet."
+VO: *"One sentence. Kami calls `KaminoAction.buildDepositTxns` — the real Kamino SDK — builds a versioned transaction with a fresh blockhash, preflight-simulates it on-chain to catch missing rent. The server never holds a private key: it uses a no-op signer and returns base64 wire bytes. Your wallet signs, the client submits, HTTP polls confirmation. Thirty seconds later — on-chain."*
 
-## Shot 5 — Borrow (0:50–1:00)
+## Shot 6 — Borrow (1:40–1:55)
 
 Action: type **"Borrow 0.05 USDC"** → send.
 
-UI: `buildBorrow` card → Sign & Send → Solflare Approve → Confirmed on mainnet.
+UI: tool-call badges `simulateHealth` → `buildBorrow` card → Sign & Send → Solflare Approve → Confirmed on mainnet.
 
-VO: "Open a borrow with one line. Every tool — deposit, borrow, withdraw, repay — builds a real v0 tx with a fresh blockhash and a preflight simulation baked in."
+VO: *"Open a borrow with one line. Every write tool — deposit, borrow, withdraw, repay — follows the same pattern: simulate, build, sign, confirm. No raw transaction JSON, ever."*
 
-## Shot 6 — Repay + auto-recovery ⭐ (1:00–1:15)
+## Shot 7 — Repay + auto-recovery ⭐ (1:55–2:25)
 
 Action: type **"Repay all my Kamino USDC borrow"** → send.
 
-UI: tool-call badges cascade — `Fetching Kamino portfolio` → `Calling buildRepay failed` (red) → `Calling buildRepay` (green). Assistant explains inline: "Kamino's program threw `NetValueRemainingTooSmall`... let me retry with a small buffer." → new repay card for 0.051 USDC with "covers your ~0.050027 USDC balance + a tiny buffer for accrued interest."
+UI: tool-call badges cascade — `Fetching Kamino portfolio` → `Calling buildRepay` (red — failed) → `Calling buildRepay` (green — retry). Assistant explains inline: *"Kamino's program threw `NetValueRemainingTooSmall` — accrued interest means repaying exactly my balance would leave dust. Let me retry with a small buffer."* → new repay card for 0.051 USDC with the caption *"covers your ~0.050027 USDC balance + a tiny buffer for accrued interest."*
 
-Action: click Sign & Send → Solflare Approve → Confirmed on mainnet.
+Action: click **Sign & Send** → Solflare Approve → Confirmed on mainnet.
 
-VO: "Protocol guardrail triggers — on-chain interest accrued since the balance snapshot, so the repay would leave dust. Kami reads the error, adds a buffer, retries. Zero user intervention."
+VO: *"Here's what deep integration looks like. On the first attempt, Kamino's program rejects the repay — interest accrued between the balance read and the transaction, and exact-repay would leave the obligation with dust, which the protocol forbids. Kami reads the specific error code, asks the chain for a fresh balance, and retries with a conservative buffer. Zero user intervention. That's the LLM reasoning over a real protocol edge case, not a hand-coded retry loop."*
 
-## Shot 7 — Withdraw all (1:15–1:25)
+## Shot 8 — Withdraw all (2:25–2:40)
 
 Action: type **"Withdraw all my Kamino USDC"** → send.
 
 UI: `buildWithdraw` card for 5.200084 USDC (principal + accrued interest). Sign & Send → Confirmed on mainnet.
 
-VO: "Close out. Principal plus accrued interest, back in the wallet. Round-trip complete."
+VO: *"Close out. Principal plus the accrued interest, back in the wallet. Three signed transactions, full round-trip."*
 
-## Closer (1:25–1:30)
+## Closer (2:40–2:50)
 
-Shot: three Solscan links stacked on a dark background with the Kami K logo.
+Shot: three Solscan tx hashes animate in one by one, stacked on a dark background with the Kami **K** logo. Bottom-row credits scroll: *"Built with Eitherway · Kamino · Solflare · Helius · Vercel AI SDK"*.
 
-VO: "Kami — Eitherway track, Frontier Hackathon 2026. Deployed on Vercel. Open-source. Three mainnet transactions in ninety seconds. kami dot rectorspace dot com."
+VO: *"Kami. Eitherway track, Frontier Hackathon 2026. Scaffold generated by Eitherway, extended with Fastify, the Kamino klend SDK, and Solflare as the featured wallet. Open-source. Live at kami dot rectorspace dot com."*
 
 ---
 
 ## Production checklist
 
-- [ ] Test wallet topped up (≥ 0.1 SOL, ≥ 6 USDC) before recording. Shot 6's auto-recovery needs a buffer of at least $5 equivalent in the obligation.
+- [ ] Test wallet topped up (≥ 0.1 SOL, ≥ 6 USDC) before recording. Shot 7's auto-recovery needs a buffer of at least $5 equivalent in the obligation.
 - [ ] Network stable — ideally wired, or turn off Wi-Fi interference. Vercel p95 first-byte is ~300 ms but Solflare preflight retries are transient; 1–2 restarts are expected.
 - [ ] Disable notifications, close other tabs.
 - [ ] Record 1440×900 native, export 1080p for YouTube/X.
-- [ ] Voice-over recorded separately, mixed in post — VO here is ~90 s at ~110 wpm.
+- [ ] Voice-over recorded separately, mixed in post. Script is **~330 words** (~2:30–2:50 @ 130 wpm). Trim or pad where natural pauses land.
 - [ ] Captions: bake in every VO line + every UI action (tool-call badges fly by too fast to read otherwise).
-- [ ] Cold-start gotcha: first AI message triggers the lazy markdown chunk fetch (~48 kB). Pre-warm by running Shot 1 + Shot 2 off-camera, then start recording.
-- [ ] Have a fallback take plan for Shot 6 — if the auto-recovery doesn't trigger (interest rate could change), switch to Shot 6b (partial-repay-then-full with a manual buffer). Don't improv.
+- [ ] Cold-start gotcha: first AI message triggers the lazy markdown chunk fetch (~48 kB). Pre-warm by running Shot 2 + Shot 3 off-camera, then start recording.
+- [ ] Have a fallback take plan for Shot 7 — if the auto-recovery doesn't trigger (interest rate could change so exact-repay might randomly succeed), switch to Shot 7b (partial-repay-then-full with a manual buffer). Don't improv.
+- [ ] Title + subtitle overlays in Shot 1 (at 0:04 and 0:07) require post-production; keep the raw recording clean so the overlays can be added later.
 
 ## Archive signatures (today's 3 validated the flow)
 
