@@ -49,7 +49,7 @@ const compiledTx = compileTransaction(txMessage);
 const base64Txn = getBase64EncodedWireTransaction(compiledTx);
 ```
 
-(Exact pattern in [`server/tools/kamino.ts:614-700`](../server/tools/kamino.ts).)
+(Exact pattern in [`server/tools/kamino.ts:642-675`](../server/tools/kamino.ts) — the `createNoopSigner` + `compileTransaction` + `getBase64EncodedWireTransaction` block inside `buildKaminoTxn`.)
 
 The UI renders a Sign & Send card (`src/components/SignTransactionCard.tsx`) with the exact action / amount / protocol; the user signs with their wallet; the client submits via a same-origin `/api/rpc` proxy; confirmation is polled over HTTP (`getSignatureStatuses` + `getBlockHeight`) since Vercel Functions cannot upgrade the WebSockets that `connection.confirmTransaction` requires.
 
