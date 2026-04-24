@@ -2,6 +2,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
 import { z } from 'zod';
 import { createChatStream } from '../server/chat.js';
+import { applyLimit, identify, type LimitResult } from '../server/ratelimit.js';
+
+const CHAT_RATE_LIMIT = { name: 'chat', limit: 30, window: '1 m' as const };
 
 export const config = {
   maxDuration: 60,
@@ -46,6 +49,12 @@ function sendJson(res: ServerResponse, status: number, payload: unknown) {
   res.end(JSON.stringify(payload));
 }
 
+function setRateLimitHeaders(res: ServerResponse, r: LimitResult) {
+  res.setHeader('X-RateLimit-Limit', String(r.limit));
+  res.setHeader('X-RateLimit-Remaining', String(r.remaining));
+  res.setHeader('X-RateLimit-Reset', String(r.reset));
+}
+
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
@@ -57,6 +66,22 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   if (!apiKey) {
     sendJson(res, 500, { error: 'KAMI_OPENROUTER_API_KEY not configured' });
     return;
+  }
+
+  const rate = await applyLimit(CHAT_RATE_LIMIT, identify(req));
+  if (rate) {
+    setRateLimitHeaders(res, rate);
+    if (!rate.ok) {
+      const retryAfter = Math.max(1, Math.ceil((rate.reset - Date.now()) / 1000));
+      res.setHeader('Retry-After', String(retryAfter));
+      sendJson(res, 429, {
+        error: 'Too many requests',
+        limit: rate.limit,
+        remaining: rate.remaining,
+        retryAfterSeconds: retryAfter,
+      });
+      return;
+    }
   }
 
   const raw = await readBody(req);

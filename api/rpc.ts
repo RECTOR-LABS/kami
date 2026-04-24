@@ -1,10 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { applyLimit, identify, type LimitResult } from '../server/ratelimit.js';
 
 export const config = {
   maxDuration: 30,
 };
 
 const MAX_BODY_BYTES = 64 * 1024;
+const RPC_RATE_LIMIT = { name: 'rpc', limit: 120, window: '1 m' as const };
+
+function setRateLimitHeaders(res: ServerResponse, r: LimitResult) {
+  res.setHeader('X-RateLimit-Limit', String(r.limit));
+  res.setHeader('X-RateLimit-Remaining', String(r.remaining));
+  res.setHeader('X-RateLimit-Reset', String(r.reset));
+}
 
 const DENIED_METHODS = new Set([
   'getProgramAccounts',
@@ -62,6 +70,26 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ error: 'SOLANA_RPC_URL not configured' }));
     return;
+  }
+
+  const rate = await applyLimit(RPC_RATE_LIMIT, identify(req));
+  if (rate) {
+    setRateLimitHeaders(res, rate);
+    if (!rate.ok) {
+      const retryAfter = Math.max(1, Math.ceil((rate.reset - Date.now()) / 1000));
+      res.statusCode = 429;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Retry-After', String(retryAfter));
+      res.end(
+        JSON.stringify({
+          error: 'Too many requests',
+          limit: rate.limit,
+          remaining: rate.remaining,
+          retryAfterSeconds: retryAfter,
+        }),
+      );
+      return;
+    }
   }
 
   const body = await readBody(req);
