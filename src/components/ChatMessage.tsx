@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ChatMessage as ChatMessageType } from '../types';
-import { renderMarkdown } from '../lib/markdown';
+import { Markdown } from '../lib/markdown';
 import { stripTransactionBlock } from '../lib/parseTransaction';
 import TransactionCard from './TransactionCard';
 import SignTransactionCard from './SignTransactionCard';
@@ -37,7 +37,7 @@ export default function ChatMessage({ message, walletConnected }: Props) {
         {message.toolCalls && message.toolCalls.length > 0 && (
           <ToolCallBadges calls={message.toolCalls} />
         )}
-        <div className="text-sm space-y-1">{renderMarkdown(displayContent)}</div>
+        <div className="text-sm space-y-1"><Markdown text={displayContent} /></div>
         {message.pendingTransaction && (
           <SignTransactionCard transaction={message.pendingTransaction} />
         )}
