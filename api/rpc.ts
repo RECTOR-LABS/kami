@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { applyLimit, identify, type LimitResult } from '../server/ratelimit.js';
+import { deniedMethodIn, oversizedParamsIn } from '../server/rpc-guards.js';
 
 export const config = {
   maxDuration: 30,
@@ -14,24 +15,6 @@ function setRateLimitHeaders(res: ServerResponse, r: LimitResult) {
   res.setHeader('X-RateLimit-Reset', String(r.reset));
 }
 
-const DENIED_METHODS = new Set([
-  'getProgramAccounts',
-  'getSignaturesForAddress',
-  'getConfirmedSignaturesForAddress2',
-  'getConfirmedBlock',
-  'getBlock',
-  'getBlocks',
-  'getBlocksWithLimit',
-  'getBlockProduction',
-  'getInflationReward',
-  'getRecentPerformanceSamples',
-  'getRecentPrioritizationFees',
-  'getLargestAccounts',
-  'getSupply',
-  'getVoteAccounts',
-  'getClusterNodes',
-]);
-
 async function readBody(req: IncomingMessage): Promise<Buffer | null> {
   const chunks: Buffer[] = [];
   let total = 0;
@@ -42,17 +25,6 @@ async function readBody(req: IncomingMessage): Promise<Buffer | null> {
     chunks.push(buf);
   }
   return Buffer.concat(chunks);
-}
-
-function deniedMethodIn(payload: unknown): string | null {
-  const calls = Array.isArray(payload) ? payload : [payload];
-  for (const c of calls) {
-    if (c && typeof c === 'object' && typeof (c as { method?: unknown }).method === 'string') {
-      const method = (c as { method: string }).method;
-      if (DENIED_METHODS.has(method)) return method;
-    }
-  }
-  return null;
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
@@ -120,6 +92,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         hint: 'Use a public RPC or your own Helius key for heavy historical queries.',
       }),
     );
+    return;
+  }
+
+  const oversized = oversizedParamsIn(parsed);
+  if (oversized) {
+    res.statusCode = 400;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: oversized }));
     return;
   }
 
