@@ -1,5 +1,36 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { IncomingMessage } from 'node:http';
+
+const mocks = vi.hoisted(() => ({
+  behavior: 'success' as 'success' | 'blocked' | 'throw',
+  resetAt: 0,
+}));
+
+vi.mock('@upstash/ratelimit', () => ({
+  Ratelimit: class {
+    static slidingWindow() {
+      return {};
+    }
+    constructor() {}
+    async limit(_id: string) {
+      if (mocks.behavior === 'throw') throw new Error('upstash unreachable');
+      const reset = mocks.resetAt || Date.now() + 60_000;
+      return {
+        success: mocks.behavior === 'success',
+        limit: 10,
+        remaining: mocks.behavior === 'success' ? 9 : 0,
+        reset,
+      };
+    }
+  },
+}));
+
+vi.mock('@upstash/redis', () => ({
+  Redis: class {
+    constructor() {}
+  },
+}));
+
 import { identify, applyLimit, getLimiter, _resetForTesting } from './ratelimit';
 
 function mockReq(headers: Record<string, string | string[] | undefined>): IncomingMessage {
@@ -25,8 +56,25 @@ describe('identify', () => {
     expect(identify(req)).toBe('203.0.113.1');
   });
 
-  it('returns "anonymous" when no IP headers are present', () => {
-    expect(identify(mockReq({}))).toBe('anonymous');
+  it('returns "anonymous" when no IP headers are present outside production', () => {
+    const origEnv = process.env.NODE_ENV;
+    delete process.env.NODE_ENV;
+    try {
+      expect(identify(mockReq({}))).toBe('anonymous');
+    } finally {
+      if (origEnv !== undefined) process.env.NODE_ENV = origEnv;
+    }
+  });
+
+  it('returns empty string when no IP headers are present in production (fail-closed)', () => {
+    const origEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      expect(identify(mockReq({}))).toBe('');
+    } finally {
+      if (origEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = origEnv;
+    }
   });
 
   it('handles array values for x-forwarded-for', () => {
@@ -63,5 +111,60 @@ describe('getLimiter / applyLimit without env vars', () => {
   it('applyLimit returns null when env vars are missing (graceful degradation)', async () => {
     const result = await applyLimit({ name: 'test', limit: 10, window: '1 m' }, '1.1.1.1');
     expect(result).toBeNull();
+  });
+});
+
+describe('applyLimit with mocked Upstash', () => {
+  const origUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const origToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const origErr = console.error;
+
+  beforeEach(() => {
+    process.env.UPSTASH_REDIS_REST_URL = 'https://stub.upstash.io';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 'stub-token';
+    mocks.behavior = 'success';
+    mocks.resetAt = 0;
+    _resetForTesting();
+    console.error = () => {};
+  });
+
+  afterEach(() => {
+    if (origUrl) process.env.UPSTASH_REDIS_REST_URL = origUrl;
+    else delete process.env.UPSTASH_REDIS_REST_URL;
+    if (origToken) process.env.UPSTASH_REDIS_REST_TOKEN = origToken;
+    else delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    _resetForTesting();
+    console.error = origErr;
+  });
+
+  it('returns {ok: true} when limiter allows the request', async () => {
+    mocks.behavior = 'success';
+    const r = await applyLimit({ name: 'test', limit: 10, window: '1 m' }, '1.1.1.1');
+    expect(r).not.toBeNull();
+    expect(r!.ok).toBe(true);
+    expect(r!.remaining).toBe(9);
+  });
+
+  it('returns {ok: false} when limiter blocks the request', async () => {
+    mocks.behavior = 'blocked';
+    const r = await applyLimit({ name: 'test', limit: 10, window: '1 m' }, '1.1.1.1');
+    expect(r).not.toBeNull();
+    expect(r!.ok).toBe(false);
+    expect(r!.remaining).toBe(0);
+  });
+
+  it('fails open (returns null) when limiter.limit() throws', async () => {
+    mocks.behavior = 'throw';
+    const r = await applyLimit({ name: 'test', limit: 10, window: '1 m' }, '1.1.1.1');
+    expect(r).toBeNull();
+  });
+
+  it('fails closed on empty identifier when limiter is configured', async () => {
+    mocks.behavior = 'success';
+    const r = await applyLimit({ name: 'test', limit: 10, window: '1 m' }, '');
+    expect(r).not.toBeNull();
+    expect(r!.ok).toBe(false);
+    expect(r!.limit).toBe(0);
+    expect(r!.remaining).toBe(0);
   });
 });

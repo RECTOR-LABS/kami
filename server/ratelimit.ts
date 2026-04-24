@@ -56,8 +56,13 @@ export function identify(req: IncomingMessage): string {
   const fwdStr = Array.isArray(xfwd) ? xfwd[0] : xfwd;
   const fromFwd = typeof fwdStr === 'string' ? fwdStr.split(',')[0]?.trim() : '';
   const fromReal = typeof xreal === 'string' ? xreal.trim() : '';
+  const ip = fromFwd || fromReal;
 
-  return fromFwd || fromReal || 'anonymous';
+  if (ip) return ip;
+  // Vercel always populates x-forwarded-for on incoming traffic. A missing IP
+  // in production is anomalous — refuse to bucket every such caller under a
+  // shared 'anonymous' key that a single actor could then exhaust and DoS.
+  return process.env.NODE_ENV === 'production' ? '' : 'anonymous';
 }
 
 export async function applyLimit(
@@ -66,13 +71,23 @@ export async function applyLimit(
 ): Promise<LimitResult | null> {
   const limiter = getLimiter(config);
   if (!limiter) return null;
-  const r = await limiter.limit(identifier);
-  return {
-    ok: r.success,
-    limit: r.limit,
-    remaining: r.remaining,
-    reset: r.reset,
-  };
+  if (!identifier) {
+    return { ok: false, limit: 0, remaining: 0, reset: Date.now() + 60_000 };
+  }
+  try {
+    const r = await limiter.limit(identifier);
+    return {
+      ok: r.success,
+      limit: r.limit,
+      remaining: r.remaining,
+      reset: r.reset,
+    };
+  } catch (err) {
+    // Fail-open: an Upstash outage must not cascade into Kami unavailability.
+    // Logged for post-hoc analysis; legitimate traffic continues to flow.
+    console.error('[ratelimit] limiter.limit threw — failing open', err);
+    return null;
+  }
 }
 
 /** For tests only — clears the in-memory singleton so env-var changes take effect. */
