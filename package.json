@@ -41,6 +41,7 @@
     "zod": "^4.3.6"
   },
   "pnpm": {
+    "_peerDependencyRulesRationale": "Silences 6 transitive peer warnings from klend-sdk 7.3.x, whose @solana-program/* transitives declare @solana/kit ^3 even though klend-sdk itself runs on kit v2 at runtime (verified via live mainnet txs). The v3 peer declaration only covers type imports that exist in both v2 and v3. Revisit when klend-sdk bumps a major — silencing here could mask a real runtime incompatibility on that future bump.",
     "peerDependencyRules": {
       "allowedVersions": {
         "@solana/kit": "^2.3.0",
