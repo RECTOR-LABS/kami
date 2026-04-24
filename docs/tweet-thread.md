@@ -43,11 +43,11 @@ Live-validated mainnet. No middleware, no hand-rolled IX — every write calls `
 
 **3/5**
 
-Hero moment: the LLM auto-recovers from Kamino's `NetValueRemainingTooSmall` dust floor.
+Hero moment: LLM auto-recovers Kamino's `NetValueRemainingTooSmall` dust floor.
 
-buildRepay fails → getPortfolio refreshes → buildRepay with 0.001 USDC buffer → confirmed on mainnet.
+buildRepay fails → getPortfolio refreshes → buildRepay with a tiny buffer → confirmed on mainnet.
 
-No hard-coded retry loop. The system prompt teaches the LLM to read the error code and reason about the dust floor.
+No hard-coded retry. The prompt teaches the LLM to read the error and reason about it.
 
 ---
 
@@ -75,17 +75,17 @@ Feedback welcome. Break it, find edge cases, tag me.
 
 ---
 
-## Character counts (sanity)
+## Character counts (sanity — re-counted with Python `len()`)
 
-| # | Chars | Under 280? |
-|---|-------|-----------|
-| 1 | ~258  | ✓ |
-| 2 | ~246  | ✓ |
-| 3 | ~274  | ✓ |
-| 4 | ~240  | ✓ |
-| 5 | ~275  | ✓ |
+| # | Raw chars | X-weighted* | Under 280? |
+|---|----------:|------------:|-----------|
+| 1 | 249       | 252         | ✓ |
+| 2 | 271       | 271         | ✓ |
+| 3 | 266       | 266         | ✓ |
+| 4 | 251       | 251         | ✓ |
+| 5 | 283       | ~242        | ✓ (via URL weighting) |
 
-All tweets fit within Twitter's 280-char limit with some headroom. If a handle change pushes one over, trim the "Feedback welcome" line in T5.
+\* X counts every URL as a flat 23 chars regardless of length, so T5's three links shrink the effective count. Verify in the X composer before posting anyway; handle resolutions can shift numbers by a few chars.
 
 ---
 
