@@ -33,7 +33,11 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./src/test-setup.ts'],
     globals: true,
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'server/**/*.{test,spec}.ts'],
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      'server/**/*.{test,spec}.ts',
+      'api/**/*.{test,spec}.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
