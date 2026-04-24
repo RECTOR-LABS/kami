@@ -30,6 +30,12 @@ Each builds an unsigned v0 transaction server-side (fresh blockhash, proper comp
 
 **Preflight built-in:** every `build*` tool runs `simulateTransaction` before returning. If the wallet is short on SOL for account rent, Kami surfaces a precise shortfall — *before* the user burns a failed-tx fee.
 
+## Kamino Integration
+
+Kami is a deep Kamino integration, not a surface-level wrapper. Each of the seven tools maps one-to-one to a `@kamino-finance/klend-sdk` primitive; the LLM's system prompt encodes Kamino domain knowledge (klend / multiply / kliquidity / Scope, main-market address, health-factor semantics, dust-floor behaviour); and the LLM auto-recovers from Kamino-specific edge cases like `NetValueRemainingTooSmall` during close-out flows.
+
+Full tool-by-tool SDK primitive mapping, architecture walkthrough, and live-validated mainnet signatures in **[docs/kamino-integration.md](./docs/kamino-integration.md)**.
+
 ## Architecture
 
 <p align="center">
