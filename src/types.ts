@@ -10,7 +10,7 @@ export interface ChatMessage {
 
 export type PendingTxAction = 'deposit' | 'borrow' | 'withdraw' | 'repay';
 
-export type PendingTxStatus = 'pending' | 'signing' | 'submitted' | 'confirmed' | 'failed';
+export type PendingTxStatus = 'pending' | 'signing' | 'submitted' | 'confirmed' | 'failed' | 'cancelled';
 
 export interface PendingTransaction {
   action: PendingTxAction;

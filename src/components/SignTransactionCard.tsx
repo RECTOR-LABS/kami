@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { VersionedTransaction, type Connection } from '@solana/web3.js';
 import type { PendingTransaction, PendingTxStatus } from '../types';
+import { classifyWalletError, type ClassifiedWalletError } from '../lib/walletError';
 
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 120_000;
@@ -65,24 +66,6 @@ function decodeBase64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
-function describeWalletError(err: unknown): string {
-  if (!err) return 'Unknown wallet error.';
-  if (err instanceof Error) {
-    const cause = (err as Error & { cause?: unknown }).cause;
-    const causeMsg = cause instanceof Error && cause.message ? cause.message : '';
-    if (err.message) {
-      const tag = err.name && err.name !== 'Error' && !err.message.includes(err.name) ? ` (${err.name})` : '';
-      return causeMsg ? `${err.message}${tag} — cause: ${causeMsg}` : `${err.message}${tag}`;
-    }
-    if (causeMsg) return `${err.name || 'Error'} — cause: ${causeMsg}`;
-    const friendly =
-      err.name === 'WalletSendTransactionError'
-        ? 'Wallet did not return a reason. Likely the Solflare popup was dismissed, or Solflare\'s own preflight rejected the transaction. Try again, and watch the Solflare window.'
-        : 'Wallet returned no detail.';
-    return err.name ? `${err.name} — ${friendly}` : friendly;
-  }
-  return String(err);
-}
 
 export default function SignTransactionCard({ transaction }: Props) {
   const { connection } = useConnection();
@@ -90,7 +73,9 @@ export default function SignTransactionCard({ transaction }: Props) {
 
   const [status, setStatus] = useState<PendingTxStatus>(transaction.status ?? 'pending');
   const [signature, setSignature] = useState<string | null>(transaction.signature ?? null);
-  const [error, setError] = useState<string | null>(transaction.error ?? null);
+  const [error, setError] = useState<ClassifiedWalletError | null>(
+    transaction.error ? { kind: 'unknown', message: transaction.error } : null
+  );
 
   const icon = ACTION_ICONS[transaction.action];
   const colors = ACTION_COLORS[transaction.action];
@@ -100,7 +85,7 @@ export default function SignTransactionCard({ transaction }: Props) {
 
   const handleSignAndSend = async () => {
     if (!connected || !publicKey) {
-      setError('Connect a wallet first.');
+      setError({ kind: 'unknown', message: 'Connect a wallet first.' });
       setStatus('failed');
       return;
     }
@@ -124,15 +109,16 @@ export default function SignTransactionCard({ transaction }: Props) {
       if (outcome.status === 'confirmed') {
         setStatus('confirmed');
       } else {
-        setError(outcome.reason);
+        const classified = classifyWalletError(new Error(outcome.reason));
+        setError(classified);
         setStatus('failed');
       }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[Kami] sendTransaction failed', err);
-      const message = describeWalletError(err);
-      setError(message);
-      setStatus('failed');
+      const classified = classifyWalletError(err);
+      setError(classified);
+      setStatus(classified.kind === 'cancelled' ? 'cancelled' : 'failed');
     }
   };
 
@@ -192,11 +178,25 @@ export default function SignTransactionCard({ transaction }: Props) {
         </div>
       )}
 
-      {status === 'failed' && (
+      {(status === 'failed' || status === 'cancelled') && (
         <div className="space-y-2">
-          <StatusPill tone="error" label="Failed" />
+          <StatusPill
+            tone={status === 'cancelled' ? 'warning' : 'error'}
+            label={status === 'cancelled' ? 'Cancelled' : 'Failed'}
+          />
           {error && (
-            <p className="text-xs text-red-300/80 break-words font-mono">{error}</p>
+            <div className="space-y-1">
+              <p
+                className={`text-xs break-words font-mono ${
+                  status === 'cancelled' ? 'text-amber-200/90' : 'text-red-300/80'
+                }`}
+              >
+                {error.message}
+              </p>
+              {error.hint && (
+                <p className="text-xs text-kami-muted break-words">{error.hint}</p>
+              )}
+            </div>
           )}
           {!busy && connected && (
             <button
@@ -226,13 +226,14 @@ function StatusPill({
   label,
   spin,
 }: {
-  tone: 'info' | 'success' | 'error';
+  tone: 'info' | 'success' | 'error' | 'warning';
   label: string;
   spin?: boolean;
 }) {
   const toneStyles = {
     info: 'bg-kami-accent/15 border-kami-accent/30 text-kami-accent',
     success: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+    warning: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
     error: 'bg-red-500/15 border-red-500/30 text-red-300',
   }[tone];
   return (
