@@ -1,0 +1,40 @@
+name: Uptime — redis-kami
+
+on:
+  schedule:
+    # Every 15 minutes — enough resolution to notice an outage during
+    # business hours without spamming. Increase cadence later if needed.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: uptime-redis
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: PING serverless-redis-http via Cloudflare tunnel
+        env:
+          SRH_TOKEN: ${{ secrets.SRH_TOKEN }}
+        run: |
+          if [ -z "$SRH_TOKEN" ]; then
+            echo "::error::SRH_TOKEN secret is not set on this repo. Add via: gh secret set SRH_TOKEN -b '<token>'"
+            exit 1
+          fi
+          RESPONSE=$(curl -sS --max-time 10 \
+            -H "Authorization: Bearer $SRH_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST https://redis-kami.rectorspace.com/ \
+            --data '["PING"]')
+          echo "Response: $RESPONSE"
+          if [ "$RESPONSE" = '{"result":"PONG"}' ]; then
+            echo "✓ redis-kami responded with PONG"
+            exit 0
+          fi
+          echo "::error::redis-kami did not return the expected PONG response."
+          echo "::error::Got: $RESPONSE"
+          echo "::error::Investigate via: ssh reclabs3 'docker ps --filter name=kami-redis && systemctl is-active cloudflared'"
+          exit 1
