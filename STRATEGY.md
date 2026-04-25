@@ -34,14 +34,14 @@ Rule compliance:
 
 ## Core features
 
-Must-have (ships for submission):
-- Streaming chat with Claude (Sonnet or Opus) via Fastify backend
-- Phantom + Solflare wallet connect
-- `getPortfolio` tool → user's Kamino obligation (deposits, borrows, health)
-- `findYield` tool → ranks Kamino reserves by APY vs risk
-- `simulateHealth` tool → "what if SOL drops 20%" style questions
-- `buildDeposit` / `buildRebalance` → client-built txs for user to sign
-- TransactionCard pattern: AI-suggested actions become sign-able cards
+Must-have (ships for submission) — **all live on mainnet as of Day 8**:
+- Streaming chat with Claude Sonnet 4.6 via OpenRouter on a Node-style Vercel Function (Fastify in local dev only)
+- Solflare-featured wallet connect via Wallet Standard discovery (any Wallet-Standard-compatible wallet — Phantom, Backpack, etc. — also works)
+- `getPortfolio` tool → user's Kamino obligation (deposits, borrows, health) ✓
+- `findYield` tool → ranks Kamino reserves by APY vs risk ✓
+- `simulateHealth` tool → projects health factor for hypothetical actions ✓
+- `buildDeposit` / `buildBorrow` / `buildWithdraw` / `buildRepay` → unsigned base64 v0 txs for the user's wallet to sign ✓
+- Sign & Send card pattern: every `build*` tool result renders a card with action / amount / protocol / preflight surplus, then HTTP-polls confirmation
 
 Nice-to-have (post-submission):
 - Scope oracle price overlay
@@ -57,14 +57,16 @@ Nice-to-have (post-submission):
 - **Production tone**: every write transaction card ends with a "Verify every detail before signing." footer.
 - **Branch discipline**: one commit per logical change, no AI attribution in messages.
 
-## Stack commitments
+## Stack commitments (state at Day 8)
 
-- Frontend: Vite + React 18 (Eitherway's choice — accepted for velocity)
-- Backend: Fastify 5 + `@anthropic-ai/sdk` streaming
-- Solana: `@kamino-finance/klend-sdk` + `@solana/kit` v2 (klend migrated to kit)
-- Deploy: Eitherway → Vercel; custom domain `kami.rectorspace.com` (Cloudflare CNAME)
-- Tests: `pnpm test:run` (TBD — Vitest) for tool logic; Playwright for E2E
-- Lint/format: follow repo defaults; no bespoke config yet
+- Frontend: Vite + React 18 (Eitherway's choice — accepted for velocity); top-level `ErrorBoundary` at root
+- Backend: Vercel AI SDK v6 (`streamText` + `fullStream`) on Node-style Vercel Functions (`api/chat.ts` + `api/rpc.ts`). Fastify 5 retained for local dev only (`server/index.ts`)
+- LLM: `anthropic/claude-sonnet-4.6` via OpenRouter (swappable via `KAMI_MODEL`)
+- Solana: `@kamino-finance/klend-sdk` 7.3 on `@solana/kit` v2; `createNoopSigner` + `compileTransaction` so the wallet signs client-side and the server holds no key
+- Deploy: Vercel auto-deploys from `main`; `eitherway-v0` git tag preserves the Eitherway-genesis origin; custom domain `kami.rectorspace.com` via Cloudflare DNS-only + Vercel auto-SSL
+- Rate-limit: `@upstash/ratelimit` against self-hosted Redis at `redis-kami.rectorspace.com` (Cloudflare tunnel + `hiett/serverless-redis-http` shim); fail-open on Upstash error
+- Tests: `pnpm test:run` — 106 vitest tests across handlers, guards, ratelimit, helpers, components; CI runs typecheck + tests + build + klend-sdk pin guard on every push
+- Lint/format: follow repo defaults; no bespoke config (deferred — not blocking submission)
 
 ## Credit budget
 
