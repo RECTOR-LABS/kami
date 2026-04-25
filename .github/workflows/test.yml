@@ -31,6 +31,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Guard klend-sdk pin (fail on major bump beyond ^7.x)
+        run: |
+          KLEND_VER=$(jq -r '.dependencies["@kamino-finance/klend-sdk"]' package.json)
+          KLEND_MAJOR=$(echo "$KLEND_VER" | sed 's/^[^0-9]*//' | cut -d. -f1)
+          echo "klend-sdk pin: $KLEND_VER (major: $KLEND_MAJOR)"
+          if [[ "$KLEND_MAJOR" != "7" ]]; then
+            echo "::error::klend-sdk pin moved to major $KLEND_MAJOR (was ^7.x)."
+            echo "::error::The pnpm.peerDependencyRules silencing of @solana/kit ^3 peer warnings is verified safe ONLY while klend-sdk runs on kit v2 at runtime."
+            echo "::error::Re-verify mainnet behavior on the new major and update the _peerDependencyRulesRationale comment in package.json before merging."
+            exit 1
+          fi
+
       - name: Typecheck (client)
         run: pnpm exec tsc --noEmit
 
