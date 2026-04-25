@@ -72,7 +72,7 @@ async function getMarket(): Promise<KaminoMarket> {
   return market;
 }
 
-function toNumber(d: Decimal): number {
+export function toNumber(d: Decimal): number {
   return Number.isFinite(d.toNumber()) ? d.toNumber() : 0;
 }
 
@@ -104,7 +104,7 @@ function mapPositions(
   return out;
 }
 
-function computeHealthFactor(loanToValue: Decimal, liquidationLtv: Decimal): number | null {
+export function computeHealthFactor(loanToValue: Decimal, liquidationLtv: Decimal): number | null {
   if (loanToValue.lte(0)) return null;
   return toNumber(liquidationLtv.div(loanToValue));
 }
@@ -411,7 +411,7 @@ export const simulateHealth: ToolDefinition<
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
-function formatSol(lamports: number | bigint): string {
+export function formatSol(lamports: number | bigint): string {
   const n = typeof lamports === 'bigint' ? Number(lamports) : lamports;
   return (n / LAMPORTS_PER_SOL).toFixed(6).replace(/\.?0+$/, '');
 }
@@ -489,7 +489,7 @@ async function preflightSimulate(
   };
 }
 
-function safeStringify(value: unknown): string {
+export function safeStringify(value: unknown): string {
   try {
     return JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
   } catch {
@@ -607,7 +607,7 @@ async function compileKaminoAction(
   }
 }
 
-function verbFor(action: BuildAction): string {
+export function verbFor(action: BuildAction): string {
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
