@@ -144,7 +144,7 @@ From the Kamino track brief: *"Uses Kamino as a core engine of the product."*
 
 - [`@kamino-finance/klend-sdk`](https://github.com/Kamino-Finance/klend-sdk) 7.3.22
 - [`@solana/kit`](https://github.com/anza-xyz/kit) v2 (klend-sdk's runtime dependency)
-- [`@solana/wallet-adapter-react`](https://github.com/anza-xyz/wallet-adapter) with Solflare as the featured wallet
+- [`@solana/wallet-adapter-react`](https://github.com/anza-xyz/wallet-adapter) with Solflare as the featured wallet via Wallet Standard discovery — no `@solana/wallet-adapter-solflare` package is imported; modern Solflare registers itself globally and `WalletProvider` picks it up
 - [Vercel AI SDK](https://sdk.vercel.ai/) v6 for streaming + tool orchestration
 - [Anthropic Claude Sonnet 4.6](https://www.anthropic.com/) via [OpenRouter](https://openrouter.ai/) as the LLM
 
