@@ -19,18 +19,21 @@ Eitherway judges want a live, production-quality dApp that proves their AI platf
 
 ## Approach — Ω (Eitherway-genesis + local-primary)
 
-| Phase | Where | What |
-|---|---|---|
-| **0 — Validation** (done) | Eitherway | Prompt-generate v0, export to local, confirm export path |
-| **1 — Extend** (days 2–15) | `~/local-dev/kami/` | Fastify backend, Kamino SDK tools, production polish, testing |
-| **2 — Deploy** (days 16–20) | Eitherway / Vercel | Upload back to Eitherway for final URL + optional custom domain |
-| **3 — GTM** (days 21–23) | Twitter, Superteam | Demo video, launch thread, community posts |
-| **4 — Adoption** (days 24–30+) | post-submission | Real users, onchain activity, bug fixes, judging window |
+| Phase | Where | What | Status |
+|---|---|---|---|
+| **0 — Validation** | Eitherway | Prompt-generate v0, export to local, confirm export path | ✅ Day 1 |
+| **1 — Extend** (Days 2–7) | `~/local-dev/kami/` | Vercel AI SDK + Kamino SDK tools, mainnet validation, production polish, security hardening | ✅ Day 7 |
+| **2 — Tech-debt sweep** (Day 8) | Local | Adversarial review, handler integration tests, ErrorBoundary, doc consistency, infra hygiene (kami SSH, SRH_TOKEN rotation) | ✅ Day 8 |
+| **3 — GTM** (Days 9–23) | Twitter, Superteam | Telegram compliance ping, README screenshots, demo video, launch thread, submission form, judging rehearsal | ⏳ pending |
+| **4 — Adoption** (post-submission) | — | Real users, onchain activity, bug fixes, judging window | ⏳ post-2026-05-12 |
+
+Day numbers reflect actual execution (build started 2026-04-19, submission deadline 2026-05-12 = Day 23). The original plan budgeted Days 16–20 for deployment; production was actually live on mainnet by Day 4 via direct Vercel deploy, and the freed buffer funded the Day 8 tech-debt sweep.
 
 Rule compliance:
 - ✅ v0 was built with Eitherway (documented via screenshots + `eitherway-v0` git tag)
-- ✅ Deploy URL will come from Eitherway ("deployment platform" per rules)
-- ✅ Custom code is explicitly allowed per Eitherway FAQ: *"Yes. Eitherway is the deployment platform, but you can extend functionality with custom integrations."*
+- ✅ Deployed via Vercel — explicitly supported by Eitherway's FAQ ("Eitherway is the deployment platform, but you can extend functionality with custom integrations") and confirmed by the Day 7 review of the Superteam bounty listing
+- ✅ Live URL: [`kami.rectorspace.com`](https://kami.rectorspace.com) (custom domain, Cloudflare DNS-only → Vercel auto-SSL)
+- ✅ Integration documentation shipped as `docs/kamino-integration.md` (bounty deliverable)
 
 ## Core features
 
@@ -68,18 +71,21 @@ Nice-to-have (post-submission):
 - Tests: `pnpm test:run` — 106 vitest tests across handlers, guards, ratelimit, helpers, components; CI runs typecheck + tests + build + klend-sdk pin guard on every push
 - Lint/format: follow repo defaults; no bespoke config (deferred — not blocking submission)
 
-## Credit budget
+## Credit budget (Eitherway)
 
-- Starter ($7) consumed on 2026-04-19 — produced v0 scaffold
-- Builder ($20, +$13) reserved for day-2 top-up if needed
-- Prompt economics: ~4 credits per Q&A, ~50 credits per full build
-- Strategy: minimize Eitherway prompts; maximize local Cipher development
+- Starter ($7) consumed on 2026-04-19 — produced v0 scaffold; Builder upgrade never needed
+- Local-primary strategy held: Eitherway prompts limited to the genesis scaffold; all subsequent development happened in `~/local-dev/kami/`
 
-## Risks
+## Risks (state at Day 8)
 
-| Risk | Mitigation |
-|---|---|
-| Eitherway disqualifies local-heavy submissions | FAQ explicitly allows "custom integrations"; document the Eitherway-origin v0 |
-| klend-sdk v2 migration friction | Schedule day 2 morning for the migration; fallback: hand-write the minimum SDK calls |
-| Custom domain doesn't map cleanly | Fall back to Eitherway subdomain; no submission risk |
-| Credit overruns | Upgrade to Builder mid-sprint; local-primary development limits Eitherway usage |
+| Risk | Mitigation | Status |
+|---|---|---|
+| Eitherway disqualifies local-heavy submissions | FAQ explicitly allows "custom integrations"; Eitherway-origin v0 preserved via `eitherway-v0` git tag; Vercel is Eitherway's documented deploy target | ✅ resolved (Day 7 bounty re-read) |
+| klend-sdk v2 migration friction | Day 2 morning slot; fallback: hand-write minimum SDK calls | ✅ resolved (klend-sdk 7.3 on @solana/kit v2 integrated cleanly) |
+| Custom domain doesn't map cleanly | Fall back to Eitherway subdomain | ✅ resolved (`kami.rectorspace.com` live via Cloudflare + Vercel auto-SSL) |
+| Credit overruns | Upgrade to Builder mid-sprint | ✅ resolved (Starter never exhausted; local-primary held) |
+| Demo-day live regression on the fresh-wallet first-deposit preflight path | Re-test before recording (parked as A5 — needs fresh keypair + Solflare hand) | ⏳ low risk; preflight logic unchanged since Day 6 mainnet validation, only error-message text edited Day 7 |
+| Vercel-side rate-limit outage on Redis backend | `applyLimit` fails open per `server/ratelimit.ts:85-90` — Kami serves without enforcement rather than 500-ing; 15-min GitHub Actions PING heartbeat catches outages | ✅ mitigated (Phase B4) |
+| `klend-sdk` major bump silently breaking the kit-v2 peer-dep silencing | CI workflow step parses `package.json`'s klend-sdk pin and fails on any major beyond ^7.x | ✅ mitigated (Phase B3) |
+| Kamino's `NetValueRemainingTooSmall` dust floor breaking close-out flows | LLM auto-recovery: dust-floor error → `getPortfolio` refresh → `buildRepay` with buffer; validated mainnet 2026-04-24 | ✅ resolved |
+| Kamino obligation rent (~0.022 SOL) framed as refundable in user-facing surfaces | Day 7 IDL scan + Kamino UI test confirmed permanent lock; preflight error messages + integration docs + LLM system prompt corrected | ✅ resolved (Day 7–8) |
