@@ -12,6 +12,17 @@ Deposited live on mainnet through the deployed UI:
 - **Action:** 0.5 USDC supplied to Kamino Main Market at ~5.09% APY
 - **Flow:** typed *"Deposit 0.5 USDC into Kamino main market"* → LLM called `findYield` + `buildDeposit` → signed in wallet → on-chain confirmed via client-side polling
 
+The full deposit → repay (with `NetValueRemainingTooSmall` auto-recovery) → withdraw round-trip was validated on 2026-04-24 — three archived signatures in [`docs/kamino-integration.md`](./docs/kamino-integration.md#hero-moment--llm-auto-recovery-from-kaminos-dust-floor).
+
+## Status
+
+- **106 vitest tests** across 10 files — handlers, guards, ratelimit, kamino helpers, ErrorBoundary
+- **CI on every push:** typecheck (client + server) → tests → build → klend-sdk major-pin guard
+- **Continuous deployment** via Vercel from `main`; security headers + rate-limit verified post-deploy
+- **Rate-limit live:** 30/min on `/api/chat`, 120/min on `/api/rpc`, self-hosted Redis behind a Cloudflare tunnel; fail-open on backend outage so a Redis blip never 500s the app
+- **Top-level React error boundary** catches uncaught render errors with a recovery panel
+- **Uptime heartbeat:** scheduled GitHub Actions workflow pings the Redis backend every 15 minutes
+
 ## Features
 
 ### Read-only tools (no signing)
