@@ -53,7 +53,7 @@ Full tool-by-tool SDK primitive mapping, architecture walkthrough, and live-vali
   <img src="./assets/architecture.svg" alt="Kami architecture — plain English to signed mainnet tx" width="100%"/>
 </p>
 
-- **Frontend** — Vite + React 18 + TypeScript + Tailwind. Featured wallet: [Solflare](https://solflare.com/) via `@solana/wallet-adapter-solflare` (unified extension / web / mobile fallback). Any Solana-wallet-standard wallet also works (Phantom, Backpack, etc.) — the "Use another wallet" option lists everything detected.
+- **Frontend** — Vite + React 18 + TypeScript + Tailwind. Featured wallet: [Solflare](https://solflare.com/) via Wallet Standard auto-discovery — no explicit adapter package is imported; modern Solflare registers itself globally and the generic `WalletProvider` from `@solana/wallet-adapter-react` picks it up (`wallets = []` in `WalletProvider.tsx:59`). Any other Wallet-Standard-compliant wallet (Phantom, Backpack, etc.) shows up under "Use another wallet" once installed.
 - **Chat backend** — `server/chat.ts` exports a Web `ReadableStream` powered by Vercel AI SDK `streamText` + `fullStream`. Consumed by Fastify in local dev (`server/index.ts`) and a Node-style Vercel Function in production (`api/chat.ts`). **One source of truth for tool wiring.**
 - **RPC** — Same-origin `/api/rpc` Vercel Function proxies JSON-RPC to Helius server-side. Keeps the key off the browser, avoids CORS, and sidesteps new-domain reputation issues.
 - **LLM** — `anthropic/claude-sonnet-4.6` via OpenRouter. Swappable via `KAMI_MODEL`.
