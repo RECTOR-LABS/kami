@@ -477,7 +477,7 @@ async function preflightSimulate(
     }
     return {
       ok: false,
-      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL on top of your deposit amount — a one-time setup cost per market that stays locked (klend does not currently expose a close_obligation instruction). Current balance: ${formatSol(balanceLamports)} SOL.`,
+      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL on top of your deposit amount; ~0.022 SOL of that is the obligation account rent that stays locked per market (klend does not currently expose a close_obligation instruction). Current balance: ${formatSol(balanceLamports)} SOL.`,
     };
   }
 
