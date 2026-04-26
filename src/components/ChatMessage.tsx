@@ -1,17 +1,15 @@
 import React from 'react';
 import type { ChatMessage as ChatMessageType } from '../types';
 import { Markdown } from '../lib/markdown';
-import { stripTransactionBlock } from '../lib/parseTransaction';
-import TransactionCard from './TransactionCard';
 import SignTransactionCard from './SignTransactionCard';
 import ToolCallBadges from './ToolCallBadges';
+import ConnectWalletButton from './ConnectWalletButton';
 
 interface Props {
   message: ChatMessageType;
-  walletConnected: boolean;
 }
 
-export default function ChatMessage({ message, walletConnected }: Props) {
+export default function ChatMessage({ message }: Props) {
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -24,9 +22,7 @@ export default function ChatMessage({ message, walletConnected }: Props) {
     );
   }
 
-  const displayContent = message.transaction
-    ? stripTransactionBlock(message.content)
-    : message.content;
+  const showConnectCta = message.toolCalls?.some((c) => c.status === 'wallet-required') ?? false;
 
   return (
     <div className="flex mb-4 animate-fade-in">
@@ -37,16 +33,11 @@ export default function ChatMessage({ message, walletConnected }: Props) {
         {message.toolCalls && message.toolCalls.length > 0 && (
           <ToolCallBadges calls={message.toolCalls} />
         )}
-        <div className="text-sm space-y-1"><Markdown text={displayContent} /></div>
+        <div className="text-sm space-y-1"><Markdown text={message.content} /></div>
         {message.pendingTransaction && (
           <SignTransactionCard transaction={message.pendingTransaction} />
         )}
-        {!message.pendingTransaction && message.transaction && (
-          <TransactionCard
-            transaction={message.transaction}
-            walletConnected={walletConnected}
-          />
-        )}
+        {showConnectCta && <ConnectWalletButton />}
       </div>
     </div>
   );

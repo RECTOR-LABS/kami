@@ -1,8 +1,20 @@
 import { useState, useCallback, useRef } from 'react';
 import type { ChatMessage, Conversation, PendingTransaction, ToolCallRecord } from '../types';
-import { parseTransactionBlock } from '../lib/parseTransaction';
 
 const BUILD_TOOL_NAMES = new Set(['buildDeposit', 'buildBorrow', 'buildWithdraw', 'buildRepay']);
+
+type ToolStreamOutput =
+  | { ok: true; data?: unknown }
+  | { ok: false; error?: string; code?: string };
+
+export function mapToolResultStatus(output: ToolStreamOutput | undefined): 'done' | 'error' | 'wallet-required' {
+  if (!output) return 'done';
+  if (output.ok === true) return 'done';
+  if (output.code === 'WALLET_NOT_CONNECTED' || output.code === 'INVALID_WALLET') {
+    return 'wallet-required';
+  }
+  return 'error';
+}
 import {
   loadConversations,
   saveConversations,
@@ -171,8 +183,7 @@ export function useChat() {
                 const parsed = JSON.parse(data);
                 if (parsed.text) {
                   accumulated += parsed.text;
-                  const txn = parseTransactionBlock(accumulated);
-                  commitToolCalls({ content: accumulated, transaction: txn });
+                  commitToolCalls({ content: accumulated });
                 }
                 if (parsed.toolCall) {
                   toolCalls.set(parsed.toolCall.id, {
@@ -188,8 +199,9 @@ export function useChat() {
                   toolCalls.set(parsed.toolResult.id, {
                     id: parsed.toolResult.id,
                     name: parsed.toolResult.name,
-                    status: output?.ok === false ? 'error' : 'done',
+                    status: mapToolResultStatus(output),
                     error: output?.ok === false ? output.error : existing?.error,
+                    code: output?.ok === false ? output.code : existing?.code,
                   });
                   if (
                     BUILD_TOOL_NAMES.has(parsed.toolResult.name) &&
