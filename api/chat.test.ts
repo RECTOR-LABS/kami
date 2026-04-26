@@ -90,13 +90,19 @@ function makeRes(): CapturedRes {
     },
   });
 
-  const res = writable as unknown as ServerResponse & {
+  // Internal mock shape — looser signatures than ServerResponse (whose
+  // setHeader/writeHead/end return `this` for chaining). Intersecting the
+  // strict ServerResponse type with these void-returning stubs is unsatisfiable
+  // under TS strict mode, so we type the mock as a standalone surface and cast
+  // to ServerResponse only at the export boundary.
+  const mock = writable as unknown as {
+    statusCode: number;
     setHeader: (k: string, v: string | number) => void;
     writeHead: (s: number, h?: Record<string, string | number>) => void;
     end: (payload?: string | Buffer) => void;
   };
 
-  Object.defineProperty(res, 'statusCode', {
+  Object.defineProperty(mock, 'statusCode', {
     get: () => statusCode,
     set: (v: number) => {
       statusCode = v;
@@ -104,17 +110,17 @@ function makeRes(): CapturedRes {
     configurable: true,
   });
 
-  res.setHeader = (k: string, v: string | number) => {
+  mock.setHeader = (k, v) => {
     headers[k.toLowerCase()] = String(v);
   };
-  res.writeHead = (s: number, h?: Record<string, string | number>) => {
+  mock.writeHead = (s, h) => {
     statusCode = s;
     if (h) {
       for (const [k, v] of Object.entries(h)) headers[k.toLowerCase()] = String(v);
     }
   };
   const origEnd = writable.end.bind(writable);
-  res.end = (payload?: string | Buffer) => {
+  mock.end = (payload) => {
     if (typeof payload === 'string') chunks.push(Buffer.from(payload));
     else if (Buffer.isBuffer(payload)) chunks.push(payload);
     ended = true;
@@ -122,7 +128,7 @@ function makeRes(): CapturedRes {
   };
 
   return {
-    res,
+    res: mock as unknown as ServerResponse,
     headers,
     getStatus: () => statusCode,
     getBody: () => Buffer.concat(chunks).toString(),
