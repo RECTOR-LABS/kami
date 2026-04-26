@@ -26,8 +26,12 @@ import {
 } from '@kamino-finance/klend-sdk';
 import type { ToolDefinition, ToolResult } from './types.js';
 import { getRpc } from '../solana/connection.js';
+import { assertWallet } from './wallet.js';
 
 export const KAMINO_MAIN_MARKET: Address = address('7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF');
+
+const KLEND_NO_CLOSE_OBLIGATION =
+  'klend does not currently expose a close_obligation instruction';
 
 export const getPortfolioSchema = z.object({});
 
@@ -126,19 +130,9 @@ export const getPortfolio: ToolDefinition<
     "Fetch the connected wallet's Kamino main-market obligation: deposits, borrows, APYs, LTV, and health factor.",
   schema: getPortfolioSchema,
   handler: async (_input, ctx) => {
-    if (!ctx.walletAddress) {
-      return {
-        ok: false,
-        error: 'No wallet connected. Ask the user to connect Phantom or Solflare first.',
-      };
-    }
-
-    let wallet: Address;
-    try {
-      wallet = address(ctx.walletAddress);
-    } catch {
-      return { ok: false, error: `Invalid wallet address: ${ctx.walletAddress}` };
-    }
+    const guard = assertWallet(ctx);
+    if (!('wallet' in guard)) return guard;
+    const wallet = guard.wallet;
 
     const market = await getMarket();
     const obligation = await fetchVanillaObligation(market, wallet);
@@ -147,7 +141,7 @@ export const getPortfolio: ToolDefinition<
       return {
         ok: true,
         data: {
-          wallet: ctx.walletAddress,
+          wallet: wallet,
           hasObligation: false,
           totalDepositedUsd: 0,
           totalBorrowedUsd: 0,
@@ -171,7 +165,7 @@ export const getPortfolio: ToolDefinition<
     return {
       ok: true,
       data: {
-        wallet: ctx.walletAddress,
+        wallet: wallet,
         hasObligation: true,
         totalDepositedUsd: toNumber(stats.userTotalDeposit),
         totalBorrowedUsd: toNumber(stats.userTotalBorrow),
@@ -328,19 +322,9 @@ export const simulateHealth: ToolDefinition<
     "Project the user's Kamino main-market health factor after a hypothetical deposit / borrow / withdraw / repay. Call this before any risk-sensitive action to check if it would trigger liquidation.",
   schema: simulateHealthSchema,
   handler: async (input, ctx) => {
-    if (!ctx.walletAddress) {
-      return {
-        ok: false,
-        error: 'No wallet connected. Ask the user to connect Phantom or Solflare first.',
-      };
-    }
-
-    let wallet: Address;
-    try {
-      wallet = address(ctx.walletAddress);
-    } catch {
-      return { ok: false, error: `Invalid wallet address: ${ctx.walletAddress}` };
-    }
+    const guard = assertWallet(ctx);
+    if (!('wallet' in guard)) return guard;
+    const wallet = guard.wallet;
 
     const market = await getMarket();
     const obligation = await fetchVanillaObligation(market, wallet);
@@ -472,12 +456,12 @@ async function preflightSimulate(
       const approxTotal = Number(balanceLamports) + shortfall;
       return {
         ok: false,
-        error: `Insufficient SOL for rent on this ${action}. The wallet would run out mid-transaction when setting up a required Kamino account. Current balance: ${formatSol(balanceLamports)} SOL. Estimated total needed: ~${formatSol(approxTotal)} SOL (short by ~${formatSol(shortfall)} SOL). Heads up: this is a one-time account setup cost per Kamino market — about ~0.022 SOL of this is obligation account rent that stays locked per (user, market) pair (klend does not currently expose a close_obligation instruction); the remainder is cToken ATA rent (recoverable when the ATAs are closed) plus the tx fee.`,
+        error: `Insufficient SOL for rent on this ${action}. The wallet would run out mid-transaction when setting up a required Kamino account. Current balance: ${formatSol(balanceLamports)} SOL. Estimated total needed: ~${formatSol(approxTotal)} SOL (short by ~${formatSol(shortfall)} SOL). Heads up: this is a one-time account setup cost per Kamino market — about ~0.022 SOL of this is obligation account rent that stays locked per (user, market) pair (${KLEND_NO_CLOSE_OBLIGATION}); the remainder is cToken ATA rent (recoverable when the ATAs are closed) plus the tx fee.`,
       };
     }
     return {
       ok: false,
-      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL on top of your deposit amount; ~0.022 SOL of that is the obligation account rent that stays locked per market (klend does not currently expose a close_obligation instruction). Current balance: ${formatSol(balanceLamports)} SOL.`,
+      error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL on top of your deposit amount; ~0.022 SOL of that is the obligation account rent that stays locked per market (${KLEND_NO_CLOSE_OBLIGATION}). Current balance: ${formatSol(balanceLamports)} SOL.`,
     };
   }
 
@@ -614,15 +598,8 @@ export function verbFor(action: BuildAction): string {
 async function buildPendingTransaction(
   action: BuildAction,
   input: BuildActionInput,
-  walletAddress: string
+  wallet: Address
 ): Promise<ToolResult<PendingTransaction>> {
-  let wallet: Address;
-  try {
-    wallet = address(walletAddress);
-  } catch {
-    return { ok: false, error: `Invalid wallet address: ${walletAddress}` };
-  }
-
   const market = await getMarket();
   const reserve = market.getReserveBySymbol(input.symbol);
   if (!reserve) {
@@ -704,13 +681,9 @@ function makeBuildTool(action: BuildAction, description: string): ToolDefinition
     description,
     schema: buildActionInputSchema,
     handler: async (input, ctx) => {
-      if (!ctx.walletAddress) {
-        return {
-          ok: false,
-          error: 'No wallet connected. Ask the user to connect Phantom or Solflare first.',
-        };
-      }
-      return buildPendingTransaction(action, input, ctx.walletAddress);
+      const guard = assertWallet(ctx);
+      if (!('wallet' in guard)) return guard;
+      return buildPendingTransaction(action, input, guard.wallet);
     },
   };
 }
