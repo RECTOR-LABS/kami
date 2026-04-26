@@ -31,8 +31,9 @@ export interface PendingTransaction {
 export interface ToolCallRecord {
   id: string;
   name: string;
-  status: 'calling' | 'done' | 'error';
+  status: 'calling' | 'done' | 'error' | 'wallet-required';
   error?: string;
+  code?: string;
 }
 
 export interface TransactionIntent {

@@ -1,0 +1,41 @@
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import ToolCallBadges from './ToolCallBadges';
+import type { ToolCallRecord } from '../types';
+
+const baseCall = (overrides: Partial<ToolCallRecord>): ToolCallRecord => ({
+  id: 'tc-1',
+  name: 'getPortfolio',
+  status: 'calling',
+  ...overrides,
+});
+
+describe('ToolCallBadges', () => {
+  it('renders nothing when calls is empty', () => {
+    const { container } = render(<ToolCallBadges calls={[]} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders calling state with the friendly label', () => {
+    render(<ToolCallBadges calls={[baseCall({ status: 'calling' })]} />);
+    expect(screen.getByText('Fetching Kamino portfolio')).toBeInTheDocument();
+  });
+
+  it('renders done state with the friendly label', () => {
+    render(<ToolCallBadges calls={[baseCall({ status: 'done' })]} />);
+    expect(screen.getByText('Fetching Kamino portfolio')).toBeInTheDocument();
+  });
+
+  it('renders error state with "failed" suffix', () => {
+    render(<ToolCallBadges calls={[baseCall({ status: 'error', error: 'boom' })]} />);
+    expect(screen.getByText('Fetching Kamino portfolio failed')).toBeInTheDocument();
+  });
+
+  it('renders wallet-required state as a neutral "Wallet required" pill', () => {
+    render(<ToolCallBadges calls={[baseCall({ status: 'wallet-required' })]} />);
+    expect(screen.getByText('Wallet required')).toBeInTheDocument();
+    // Friendly label suppressed for wallet-required — pill speaks for itself
+    expect(screen.queryByText('Fetching Kamino portfolio')).not.toBeInTheDocument();
+    expect(screen.queryByText(/failed/i)).not.toBeInTheDocument();
+  });
+});
