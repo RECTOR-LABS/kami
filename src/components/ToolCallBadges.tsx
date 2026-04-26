@@ -33,6 +33,17 @@ export default function ToolCallBadges({ calls }: Props) {
             </span>
           );
         }
+        if (call.status === 'wallet-required') {
+          return (
+            <span
+              key={call.id}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400"
+            >
+              <AlertCircle className="w-3 h-3" />
+              Wallet required
+            </span>
+          );
+        }
         if (call.status === 'error') {
           return (
             <span

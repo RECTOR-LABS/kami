@@ -3,7 +3,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
-  transaction?: TransactionIntent | null;
   pendingTransaction?: PendingTransaction | null;
   toolCalls?: ToolCallRecord[];
 }
@@ -31,24 +30,9 @@ export interface PendingTransaction {
 export interface ToolCallRecord {
   id: string;
   name: string;
-  status: 'calling' | 'done' | 'error';
+  status: 'calling' | 'done' | 'error' | 'wallet-required';
   error?: string;
-}
-
-export interface TransactionIntent {
-  type: 'transfer' | 'swap' | 'stake' | 'unstake' | 'custom';
-  summary: string;
-  details: {
-    from?: string;
-    to?: string;
-    amount?: string;
-    token?: string;
-    tokenMint?: string;
-    estimatedFee?: string;
-    protocol?: string;
-    slippage?: string;
-  };
-  raw?: Record<string, unknown>;
+  code?: string;
 }
 
 export interface Conversation {

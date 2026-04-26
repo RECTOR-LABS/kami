@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function ChatPanel({ conversation, isStreaming, onSend, onStop, onMenuToggle }: Props) {
-  const { publicKey, connected } = useWallet();
+  const { publicKey } = useWallet();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function ChatPanel({ conversation, isStreaming, onSend, onStop, o
         <div className="flex-1 overflow-y-auto px-4 py-6">
           <div className="max-w-3xl mx-auto">
             {conversation.messages.map((msg) => (
-              <ChatMessageComponent key={msg.id} message={msg} walletConnected={connected} />
+              <ChatMessageComponent key={msg.id} message={msg} />
             ))}
             {showTyping && <TypingIndicator />}
             <div ref={messagesEndRef} />
