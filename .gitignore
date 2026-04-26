@@ -14,3 +14,6 @@ coverage/
 .vercel
 .remember/
 .claude/
+
+# QA reports (gitignored — use --commit to publish)
+.qa/
