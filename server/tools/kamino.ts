@@ -418,6 +418,7 @@ async function preflightSimulate(
     const balResp = await rpc.getBalance(feePayer).send();
     balanceLamports = balResp.value;
   } catch (err) {
+    console.error('[preflight] getBalance threw — bypassing', err);
     return { ok: true };
   }
 
@@ -439,6 +440,7 @@ async function preflightSimulate(
       })
       .send();
   } catch (err) {
+    console.error('[preflight] simulateTransaction threw — bypassing', err);
     return { ok: true };
   }
 
