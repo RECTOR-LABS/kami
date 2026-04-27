@@ -15,6 +15,36 @@ export function mapToolResultStatus(output: ToolStreamOutput | undefined): 'done
   }
   return 'error';
 }
+
+export function formatChatError(status: number, body: unknown): string {
+  const obj = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+
+  if (status === 429) {
+    const retry = typeof obj.retryAfterSeconds === 'number' ? obj.retryAfterSeconds : null;
+    return retry !== null
+      ? `Rate limited — try again in ${retry}s.`
+      : 'Rate limited — please slow down and try again shortly.';
+  }
+
+  if (status === 413) {
+    return 'Message too large — try shortening or starting a new conversation.';
+  }
+
+  if (status === 400) {
+    if (Array.isArray(obj.issues) && obj.issues.length > 0) {
+      const first = obj.issues[0] as { message?: string };
+      const message = typeof first?.message === 'string' ? first.message : 'request format invalid';
+      return `Invalid request: ${message}.`;
+    }
+    if (typeof obj.error === 'string' && obj.error === 'Invalid JSON body') {
+      return 'Request format error — please refresh and try again.';
+    }
+    return 'Invalid request — please check your message format.';
+  }
+
+  const fallback = typeof obj.error === 'string' ? obj.error : `HTTP ${status}`;
+  return `Server error — ${fallback}.`;
+}
 import {
   loadConversations,
   saveConversations,
@@ -135,8 +165,14 @@ export function useChat() {
         });
 
         if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(errText || `HTTP ${response.status}`);
+          const text = await response.text();
+          let body: unknown;
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = { error: text };
+          }
+          throw new Error(formatChatError(response.status, body));
         }
 
         const reader = response.body?.getReader();
@@ -235,7 +271,7 @@ export function useChat() {
         saveConversations(current);
       } catch (err: unknown) {
         if (err instanceof Error && err.name === 'AbortError') return;
-        const errorContent = `I encountered an error: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`;
+        const errorContent = err instanceof Error ? err.message : 'Unknown error.';
         current = current.map((c) =>
           c.id === activeId
             ? {
