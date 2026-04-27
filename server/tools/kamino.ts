@@ -82,7 +82,7 @@ export function toNumber(d: Decimal): number {
   return Number.isFinite(d.toNumber()) ? d.toNumber() : 0;
 }
 
-const STALENESS_THRESHOLD_SLOTS = 150;  // ~60s @ ~400ms/slot — Solana DeFi convention (Pyth, Switchboard)
+const STALENESS_THRESHOLD_SLOTS = 600;  // ~4 min @ ~400ms/slot — empirically tuned (post-D-13 smoke 2026-04-27); 150-slot baseline produced too many false-positives on idle reserves
 
 export function computeStaleness(
   reserve: KaminoReserve,
