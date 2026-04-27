@@ -64,7 +64,7 @@ describe('ToolCallBadges', () => {
     );
     // both pills present, neither has ×N suffix
     expect(screen.getAllByText('Fetching Kamino portfolio')).toHaveLength(2);
-    expect(screen.queryByText(/×/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fetching Kamino portfolio ×/)).not.toBeInTheDocument();
   });
 
   it('does NOT merge non-consecutive same-name+status calls (A, B, A renders as 3 pills)', () => {
@@ -79,6 +79,34 @@ describe('ToolCallBadges', () => {
     );
     expect(screen.getAllByText('Fetching Kamino portfolio')).toHaveLength(2);
     expect(screen.getByText('Scanning yield opportunities')).toBeInTheDocument();
-    expect(screen.queryByText(/×/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fetching Kamino portfolio ×/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Scanning yield opportunities ×/)).not.toBeInTheDocument();
+  });
+
+  it('renders ×N suffix for three consecutive same-name+status calls', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', status: 'done' }),
+          baseCall({ id: 'tc-2', status: 'done' }),
+          baseCall({ id: 'tc-3', status: 'done' }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Fetching Kamino portfolio ×3')).toBeInTheDocument();
+    expect(screen.getAllByText(/Fetching Kamino portfolio/)).toHaveLength(1);
+  });
+
+  it('merges consecutive same-name wallet-required calls with ×2 suffix', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', status: 'wallet-required' }),
+          baseCall({ id: 'tc-2', status: 'wallet-required' }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Wallet required ×2')).toBeInTheDocument();
+    expect(screen.getAllByText(/Wallet required/)).toHaveLength(1);
   });
 });
