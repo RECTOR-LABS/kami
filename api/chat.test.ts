@@ -112,6 +112,7 @@ function makeRes(): CapturedRes {
   // to ServerResponse only at the export boundary.
   const mock = writable as unknown as {
     statusCode: number;
+    writableEnded: boolean;
     setHeader: (k: string, v: string | number) => void;
     writeHead: (s: number, h?: Record<string, string | number>) => void;
     end: (payload?: string | Buffer) => void;
@@ -122,6 +123,16 @@ function makeRes(): CapturedRes {
     set: (v: number) => {
       statusCode = v;
     },
+    configurable: true,
+  });
+
+  // vite-plugin-node-polyfills swaps node:stream → readable-stream@3 in the
+  // bundled test runtime, which lacks the `writableEnded` getter that real
+  // Node ServerResponse exposes. api/chat.ts uses this to guard the
+  // `req.on('close')` listener (don't abort if the response already ended);
+  // mirror that surface here so the close-listener tests behave like prod.
+  Object.defineProperty(mock, 'writableEnded', {
+    get: () => ended,
     configurable: true,
   });
 
@@ -355,6 +366,47 @@ describe('api/chat handler', () => {
     const cap = makeRes();
     await handler(makeReq({ body: validBody() }), cap.res);
     expect(chatMocks.lastSignal).toBeInstanceOf(AbortSignal);
+    expect(chatMocks.lastSignal?.aborted).toBe(false);
+  });
+
+  it('aborts the AbortSignal when req emits close before res.writableEnded', async () => {
+    let releaseStream: () => void = () => {};
+    chatMocks.streamGate = new Promise<void>((r) => {
+      releaseStream = r;
+    });
+    ratelimitMocks.next = {
+      ok: true,
+      limit: 30,
+      remaining: 29,
+      reset: Date.now() + 60_000,
+    };
+
+    const req = makeReq({ body: validBody() });
+    const cap = makeRes();
+    const handlerDone = handler(req, cap.res);
+
+    await new Promise((r) => setImmediate(r));
+    expect(chatMocks.lastSignal?.aborted).toBe(false);
+
+    (req as unknown as Readable).emit('close');
+    expect(chatMocks.lastSignal?.aborted).toBe(true);
+
+    releaseStream();
+    await handlerDone;
+  });
+
+  it('does not abort the AbortSignal when req emits close after res.writableEnded', async () => {
+    ratelimitMocks.next = {
+      ok: true,
+      limit: 30,
+      remaining: 29,
+      reset: Date.now() + 60_000,
+    };
+    const req = makeReq({ body: validBody() });
+    const cap = makeRes();
+    await handler(req, cap.res);
+
+    (req as unknown as Readable).emit('close');
     expect(chatMocks.lastSignal?.aborted).toBe(false);
   });
 });

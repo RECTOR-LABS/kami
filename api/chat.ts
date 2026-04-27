@@ -117,6 +117,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   });
 
   const controller = new AbortController();
+  req.on('close', () => {
+    if (!res.writableEnded) {
+      controller.abort();
+      console.log('chat:aborted', { wallet: walletAddress ?? null });
+    }
+  });
 
   const webStream = createChatStream(
     { messages, walletAddress: walletAddress ?? null },
