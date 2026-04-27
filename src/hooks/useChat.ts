@@ -82,6 +82,7 @@ export function useChat() {
   }, []);
 
   const switchConversation = useCallback((id: string) => {
+    abortRef.current?.abort();
     setActiveId(id);
     setActiveConversationId(id);
   }, []);
@@ -96,6 +97,9 @@ export function useChat() {
 
   const deleteConversation = useCallback(
     (id: string) => {
+      if (id === activeId) {
+        abortRef.current?.abort();
+      }
       const remaining = conversations.filter((c) => c.id !== id);
       if (remaining.length === 0) {
         const fresh = createConversation();

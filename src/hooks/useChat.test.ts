@@ -1,8 +1,6 @@
-import { describe, it, expect } from 'vitest';
-
-// Pure helper extracted from useChat's toolResult handler logic.
-// Imported here so we can test the mapping without the full streaming machinery.
-import { formatChatError, mapToolResultStatus } from './useChat';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { formatChatError, mapToolResultStatus, useChat } from './useChat';
 
 describe('mapToolResultStatus', () => {
   it('returns "wallet-required" when output.code is WALLET_NOT_CONNECTED', () => {
@@ -69,5 +67,87 @@ describe('formatChatError', () => {
   it('returns "Server error — HTTP {status}." for unknown status without body.error', () => {
     expect(formatChatError(502, undefined))
       .toBe('Server error — HTTP 502.');
+  });
+});
+
+describe('useChat abort behavior', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('aborts in-flight stream when newConversation is called (switchConversation path)', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = vi.fn((_url: unknown, init: unknown) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise(() => {}); // never resolves — keeps stream open
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(capturedSignal?.aborted).toBe(false);
+
+    act(() => {
+      result.current.newConversation();
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('aborts in-flight stream when deleteConversation is called on the active conversation', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = vi.fn((_url: unknown, init: unknown) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise(() => {});
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+    const activeId = result.current.activeId;
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    act(() => {
+      result.current.deleteConversation(activeId);
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('does not abort in-flight stream when deleteConversation deletes a non-active conversation', async () => {
+    const conv1 = { id: 'c1', title: 'one', messages: [], createdAt: 1, updatedAt: 1 };
+    const conv2 = { id: 'c2', title: 'two', messages: [], createdAt: 2, updatedAt: 2 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1, conv2]));
+    localStorage.setItem('kami_active_conversation', 'c2');
+
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = vi.fn((_url: unknown, init: unknown) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise(() => {});
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+    expect(result.current.activeId).toBe('c2');
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    act(() => {
+      result.current.deleteConversation('c1');
+    });
+
+    expect(capturedSignal?.aborted).toBe(false);
   });
 });
