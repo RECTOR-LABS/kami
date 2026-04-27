@@ -80,6 +80,20 @@ export function toNumber(d: Decimal): number {
   return Number.isFinite(d.toNumber()) ? d.toNumber() : 0;
 }
 
+const STALENESS_THRESHOLD_SLOTS = 150;  // ~60s @ ~400ms/slot — Solana DeFi convention (Pyth, Switchboard)
+
+export function computeStaleness(
+  reserve: KaminoReserve,
+  currentSlot: bigint,
+): { priceStale: boolean; slotsSinceRefresh: number } {
+  const lastSlot = reserve.state.lastUpdate.slot.toNumber();
+  const slotsSinceRefresh = Math.max(0, Number(currentSlot) - lastSlot);
+  return {
+    priceStale: slotsSinceRefresh > STALENESS_THRESHOLD_SLOTS,
+    slotsSinceRefresh,
+  };
+}
+
 function mapPositions(
   positions: IterableIterator<[Address, { reserveAddress: Address; mintAddress: Address; mintFactor: Decimal; amount: Decimal; marketValueRefreshed: Decimal }]>,
   market: KaminoMarket,
