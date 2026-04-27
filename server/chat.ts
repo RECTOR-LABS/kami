@@ -109,7 +109,8 @@ function buildTools(ctx: ToolContext, log: ChatLogger) {
 export function createChatStream(
   input: ChatInput,
   apiKey: string,
-  log: ChatLogger = consoleLogger
+  log: ChatLogger = consoleLogger,
+  signal?: AbortSignal,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const model = process.env.KAMI_MODEL || 'anthropic/claude-sonnet-4.6';
@@ -140,6 +141,7 @@ export function createChatStream(
           messages: input.messages.map((m) => ({ role: m.role, content: m.content })),
           tools,
           stopWhen: stepCountIs(maxSteps),
+          abortSignal: signal,
         });
 
         for await (const part of result.fullStream) {

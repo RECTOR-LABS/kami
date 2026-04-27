@@ -15,7 +15,9 @@ const chatMocks = vi.hoisted(() => ({
     walletAddress: string | null;
   },
   lastApiKey: '' as string,
+  lastSignal: undefined as AbortSignal | undefined,
   streamChunks: ['data: hello\n\n', 'data: world\n\n'],
+  streamGate: null as Promise<void> | null,
 }));
 
 vi.mock('../server/ratelimit.js', () => ({
@@ -31,12 +33,16 @@ vi.mock('../server/chat.js', () => ({
     (
       args: { messages: Array<{ role: string; content: string }>; walletAddress: string | null },
       apiKey: string,
+      _log: unknown,
+      signal: AbortSignal | undefined,
     ) => {
       chatMocks.lastArgs = args;
       chatMocks.lastApiKey = apiKey;
+      chatMocks.lastSignal = signal;
       const encoder = new TextEncoder();
       return new ReadableStream({
-        start(controller) {
+        async start(controller) {
+          if (chatMocks.streamGate) await chatMocks.streamGate;
           for (const c of chatMocks.streamChunks) controller.enqueue(encoder.encode(c));
           controller.close();
         },
@@ -58,7 +64,16 @@ function makeReq(opts: {
       : typeof opts.body === 'string'
         ? Buffer.from(opts.body)
         : opts.body;
-  const stream = Readable.from(buf.length > 0 ? [buf] : []);
+  let pushed = false;
+  const stream = new Readable({
+    autoDestroy: false,
+    read() {
+      if (pushed) return;
+      pushed = true;
+      if (buf.length > 0) this.push(buf);
+      this.push(null);
+    },
+  });
   Object.assign(stream, {
     method: opts.method ?? 'POST',
     headers: opts.headers ?? {},
@@ -150,7 +165,9 @@ describe('api/chat handler', () => {
     ratelimitMocks.calls.length = 0;
     chatMocks.lastArgs = null;
     chatMocks.lastApiKey = '';
+    chatMocks.lastSignal = undefined;
     chatMocks.streamChunks = ['data: hello\n\n', 'data: world\n\n'];
+    chatMocks.streamGate = null;
   });
 
   afterEach(() => {
@@ -326,5 +343,18 @@ describe('api/chat handler', () => {
     await handler(makeReq({ body: validBody() }), cap.res);
     expect(ratelimitMocks.calls).toHaveLength(1);
     expect(ratelimitMocks.calls[0].identifier).toBe('198.51.100.9');
+  });
+
+  it('passes a non-aborted AbortSignal to createChatStream and signal stays clean on natural completion', async () => {
+    ratelimitMocks.next = {
+      ok: true,
+      limit: 30,
+      remaining: 29,
+      reset: Date.now() + 60_000,
+    };
+    const cap = makeRes();
+    await handler(makeReq({ body: validBody() }), cap.res);
+    expect(chatMocks.lastSignal).toBeInstanceOf(AbortSignal);
+    expect(chatMocks.lastSignal?.aborted).toBe(false);
   });
 });

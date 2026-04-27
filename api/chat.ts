@@ -116,9 +116,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     'X-Accel-Buffering': 'no',
   });
 
+  const controller = new AbortController();
+
   const webStream = createChatStream(
     { messages, walletAddress: walletAddress ?? null },
     apiKey,
+    undefined,
+    controller.signal,
   );
 
   const nodeStream = Readable.fromWeb(
