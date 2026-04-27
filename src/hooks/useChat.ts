@@ -42,7 +42,9 @@ export function formatChatError(status: number, body: unknown): string {
     return 'Invalid request — please check your message format.';
   }
 
-  const fallback = typeof obj.error === 'string' ? obj.error : `HTTP ${status}`;
+  const errString = typeof obj.error === 'string' ? obj.error : null;
+  const isHtmlOrLong = errString !== null && (errString.startsWith('<') || errString.length > 200);
+  const fallback = errString !== null && !isHtmlOrLong ? errString : `HTTP ${status}`;
   return `Server error — ${fallback}.`;
 }
 import {

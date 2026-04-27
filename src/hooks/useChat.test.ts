@@ -68,6 +68,17 @@ describe('formatChatError', () => {
     expect(formatChatError(502, undefined))
       .toBe('Server error — HTTP 502.');
   });
+
+  it('falls back to generic message when 5xx body.error is HTML or too long', () => {
+    expect(formatChatError(502, { error: '<!DOCTYPE html><html><body>Bad Gateway</body></html>' }))
+      .toBe('Server error — HTTP 502.');
+    const longString = 'x'.repeat(201);
+    expect(formatChatError(502, { error: longString }))
+      .toBe('Server error — HTTP 502.');
+    // Sanity: short string still surfaces directly
+    expect(formatChatError(500, { error: 'KAMI_OPENROUTER_API_KEY not configured' }))
+      .toBe('Server error — KAMI_OPENROUTER_API_KEY not configured.');
+  });
 });
 
 describe('useChat abort behavior', () => {
@@ -149,5 +160,36 @@ describe('useChat abort behavior', () => {
     });
 
     expect(capturedSignal?.aborted).toBe(false);
+  });
+});
+
+describe('useChat 4xx error rendering integration', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('runs formatChatError on a 4xx response and renders the formatted message in the assistant bubble', async () => {
+    global.fetch = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({ error: 'Too many requests', retryAfterSeconds: 12 }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage('hi');
+    });
+
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const assistantMsg = result.current.activeConversation.messages.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg!.content).toBe('Rate limited — try again in 12s.');
   });
 });
