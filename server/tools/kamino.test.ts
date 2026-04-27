@@ -21,19 +21,19 @@ describe('computeStaleness', () => {
     });
   });
 
-  it('returns priceStale=true for a stale reserve (200 slots old)', () => {
-    const r = reserveAt(800);
+  it('returns priceStale=true for a stale reserve (700 slots old)', () => {
+    const r = reserveAt(300);
     expect(computeStaleness(r, BASELINE_SLOT)).toEqual({
       priceStale: true,
-      slotsSinceRefresh: 200,
+      slotsSinceRefresh: 700,
     });
   });
 
-  it('returns priceStale=false at the exact threshold (150 slots old) — uses > not >=', () => {
-    const r = reserveAt(850);
+  it('returns priceStale=false at the exact threshold (600 slots old) — uses > not >=', () => {
+    const r = reserveAt(400);
     expect(computeStaleness(r, BASELINE_SLOT)).toEqual({
       priceStale: false,
-      slotsSinceRefresh: 150,
+      slotsSinceRefresh: 600,
     });
   });
 
