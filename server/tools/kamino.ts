@@ -42,6 +42,8 @@ export interface PortfolioPosition {
   amount: number;
   valueUsd: number;
   apyPercent: number;
+  priceStale: boolean;
+  slotsSinceRefresh: number;
 }
 
 export interface PortfolioSnapshot {
@@ -110,6 +112,9 @@ function mapPositions(
         ? reserve.totalSupplyAPY(currentSlot)
         : reserve.totalBorrowAPY(currentSlot)
       : 0;
+    const staleness = reserve
+      ? computeStaleness(reserve, currentSlot)
+      : { priceStale: false, slotsSinceRefresh: 0 };
     out.push({
       symbol,
       mint: pos.mintAddress,
@@ -117,6 +122,7 @@ function mapPositions(
       amount: toNumber(tokenAmount),
       valueUsd: toNumber(pos.marketValueRefreshed),
       apyPercent: Number.isFinite(apy) ? apy * 100 : 0,
+      ...staleness,
     });
   }
   return out;
@@ -222,6 +228,8 @@ export interface YieldOpportunity {
   liquidationLtv: number;
   utilizationPercent: number;
   marketPriceUsd: number;
+  priceStale: boolean;
+  slotsSinceRefresh: number;
 }
 
 function computeUtilizationPercent(reserve: KaminoReserve): number {
@@ -267,6 +275,7 @@ export const findYield: ToolDefinition<
         liquidationLtv: reserve.stats.liquidationThreshold,
         utilizationPercent: computeUtilizationPercent(reserve),
         marketPriceUsd: toNumber(reserve.getOracleMarketPrice()),
+        ...computeStaleness(reserve, currentSlot),
       });
     }
 
