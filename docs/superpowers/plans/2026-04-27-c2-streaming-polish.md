@@ -313,7 +313,8 @@ function groupCalls(
 ): Array<{ call: ToolCallRecord; count: number }> {
   const groups: Array<{ call: ToolCallRecord; count: number }> = [];
   for (const call of calls) {
-    const last = groups.at(-1);
+    // groups.at(-1) requires ES2022 lib; project targets ES2020
+    const last = groups[groups.length - 1];
     if (last && last.call.name === call.name && last.call.status === call.status) {
       last.count += 1;
     } else {
