@@ -22,6 +22,7 @@ C-3 closed the loop on the client side (fetch aborts, ghost writes prevented). D
 - Discriminate AbortError from real errors in the existing catch block; skip the error-log path on abort.
 - Info-log on abort (`console.log('chat:aborted', { wallet })`) for ops visibility.
 - Add 3 tests in `api/chat.test.ts` covering signal threading + abort-on-close + late-close-no-op.
+- Add new `server/chat.test.ts` with 2 unit tests for the catch-block discrimination on both abort and real-error paths (catch block cannot be tested through `api/chat.test.ts` because that file mocks `createChatStream` away).
 
 **Out of scope** (skipped variants and non-goals):
 - Fastify dev server (`server/index.ts`) abort wiring — variant `(b)` skipped. Dev pays no token costs.
@@ -247,12 +248,31 @@ it('does not abort the AbortSignal when req emits close after res.writableEnded'
 });
 ```
 
+### Catch-block coverage — new `server/chat.test.ts`
+
+The catch-block discrimination (`signal?.aborted || err.name === 'AbortError'`) is new code in `server/chat.ts`. It cannot be tested through `api/chat.test.ts` because that file mocks `createChatStream` away. So a new unit-test file `server/chat.test.ts` is added with 2 tests:
+
+```ts
+// server/chat.test.ts (new file)
+//
+// Mocks `ai` and `@ai-sdk/openai`; uses an `aiMocks.fullStreamFactory`
+// hoisted shared state to inject either an AbortError or a real error
+// into the streamText fullStream. Drains the returned ReadableStream
+// and asserts on log.error invocation count + presence of "error"
+// in the streamed body.
+//
+// 1. 'suppresses log.error and stream error event when fullStream throws AbortError'
+// 2. 'logs error and emits error event when fullStream throws a non-abort error'
+```
+
 ### Coverage delta
 
 | Suite | Before | After |
 |---|---|---|
-| Total tests | 129 | 132 |
+| Total tests | 129 | 134 |
+| Test files | 14 | 15 |
 | `api/chat.test.ts` tests | 14 | 17 |
+| `server/chat.test.ts` tests | 0 | 2 |
 
 ## Edge cases
 
@@ -278,10 +298,11 @@ it('does not abort the AbortSignal when req emits close after res.writableEnded'
 ## Acceptance criteria
 
 - [ ] `pnpm exec tsc -b` clean.
-- [ ] `pnpm test:run` — 132/132 passing.
+- [ ] `pnpm test:run` — 134/134 passing across 15 files.
 - [ ] Test 1 (signal-threaded) passes.
 - [ ] Test 2 (abort-on-close) passes.
 - [ ] Test 3 (late-close no-op) passes.
+- [ ] `server/chat.test.ts` — both catch-block discrimination tests pass.
 - [ ] Manual smoke: production deploy, open two browser tabs, send a message in tab A, switch to tab B before the stream completes — verify Vercel function logs show `chat:aborted` and OpenRouter dashboard shows the request was cut short (no full stepCountIs budget consumed).
 - [ ] Issue #13 closed by the merge commit (via `Closes #13` in PR body).
 
