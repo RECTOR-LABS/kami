@@ -11,6 +11,25 @@ function labelFor(name: string): string {
   return TOOL_LABELS[name] ?? `Calling ${name}`;
 }
 
+function groupCalls(
+  calls: ToolCallRecord[],
+): Array<{ call: ToolCallRecord; count: number }> {
+  const groups: Array<{ call: ToolCallRecord; count: number }> = [];
+  for (const call of calls) {
+    const last = groups[groups.length - 1];
+    if (last && last.call.name === call.name && last.call.status === call.status) {
+      last.count += 1;
+    } else {
+      groups.push({ call, count: 1 });
+    }
+  }
+  return groups;
+}
+
+function suffix(count: number): string {
+  return count > 1 ? ` ×${count}` : '';
+}
+
 interface Props {
   calls: ToolCallRecord[];
 }
@@ -20,7 +39,7 @@ export default function ToolCallBadges({ calls }: Props) {
 
   return (
     <div className="flex flex-wrap gap-2 mb-2">
-      {calls.map((call) => {
+      {groupCalls(calls).map(({ call, count }) => {
         const label = labelFor(call.name);
         if (call.status === 'calling') {
           return (
@@ -29,7 +48,7 @@ export default function ToolCallBadges({ calls }: Props) {
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-kami-accent/10 border border-kami-accent/30 text-xs text-kami-accent"
             >
               <Loader2 className="w-3 h-3 animate-spin" />
-              {label}
+              {label}{suffix(count)}
             </span>
           );
         }
@@ -40,7 +59,7 @@ export default function ToolCallBadges({ calls }: Props) {
               className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400"
             >
               <AlertCircle className="w-3 h-3" />
-              Wallet required
+              Wallet required{suffix(count)}
             </span>
           );
         }
@@ -52,7 +71,7 @@ export default function ToolCallBadges({ calls }: Props) {
               title={call.error ?? 'Tool error'}
             >
               <AlertCircle className="w-3 h-3" />
-              {label} failed
+              {label} failed{suffix(count)}
             </span>
           );
         }
@@ -62,7 +81,7 @@ export default function ToolCallBadges({ calls }: Props) {
             className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-kami-success/10 border border-kami-success/30 text-xs text-kami-success"
           >
             <CheckCircle2 className="w-3 h-3" />
-            {label}
+            {label}{suffix(count)}
           </span>
         );
       })}
