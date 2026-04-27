@@ -178,9 +178,13 @@ export function createChatStream(
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        log.error({ err: message }, 'chat stream error');
-        writeEvent({ error: message });
+        const aborted =
+          signal?.aborted || (err instanceof Error && err.name === 'AbortError');
+        if (!aborted) {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          log.error({ err: message }, 'chat stream error');
+          writeEvent({ error: message });
+        }
       } finally {
         controller.close();
       }
