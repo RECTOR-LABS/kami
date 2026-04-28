@@ -11,6 +11,7 @@ import {
   buildRepay,
 } from './tools/kamino.js';
 import type { ToolContext } from './tools/types.js';
+import { createLogger } from './log.js';
 
 export interface ChatInput {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
@@ -22,10 +23,7 @@ export interface ChatLogger {
   error: (obj: Record<string, unknown>, msg: string) => void;
 }
 
-const consoleLogger: ChatLogger = {
-  info: (obj, msg) => console.log(msg, obj),
-  error: (obj, msg) => console.error(msg, obj),
-};
+const defaultLogger = createLogger();
 
 function buildTools(ctx: ToolContext, log: ChatLogger) {
   const trace = (name: string, ok: boolean) => log.info({ tool: name, ok }, 'tool:result');
@@ -109,7 +107,7 @@ function buildTools(ctx: ToolContext, log: ChatLogger) {
 export function createChatStream(
   input: ChatInput,
   apiKey: string,
-  log: ChatLogger = consoleLogger,
+  log: ChatLogger = defaultLogger,
   signal?: AbortSignal,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
