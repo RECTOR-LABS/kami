@@ -29,6 +29,7 @@ import { getRpc } from '../solana/connection.js';
 import { assertWallet } from './wallet.js';
 
 export const KAMINO_MAIN_MARKET: Address = address('7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF');
+export const KAMINO_MAIN_MARKET_NAME = 'Main';
 
 const KLEND_NO_CLOSE_OBLIGATION =
   'klend does not currently expose a close_obligation instruction';
@@ -48,6 +49,7 @@ export interface PortfolioPosition {
 
 export interface PortfolioSnapshot {
   wallet: string;
+  marketName: string;
   hasObligation: boolean;
   totalDepositedUsd: number;
   totalBorrowedUsd: number;
@@ -162,6 +164,7 @@ export const getPortfolio: ToolDefinition<
         ok: true,
         data: {
           wallet: wallet,
+          marketName: KAMINO_MAIN_MARKET_NAME,
           hasObligation: false,
           totalDepositedUsd: 0,
           totalBorrowedUsd: 0,
@@ -186,6 +189,7 @@ export const getPortfolio: ToolDefinition<
       ok: true,
       data: {
         wallet: wallet,
+        marketName: KAMINO_MAIN_MARKET_NAME,
         hasObligation: true,
         totalDepositedUsd: toNumber(stats.userTotalDeposit),
         totalBorrowedUsd: toNumber(stats.userTotalBorrow),
@@ -220,6 +224,7 @@ export const findYieldSchema = z.object({
 
 export interface YieldOpportunity {
   symbol: string;
+  marketName: string;
   mint: string;
   reserve: string;
   side: 'supply' | 'borrow';
@@ -267,6 +272,7 @@ export const findYield: ToolDefinition<
       if (!Number.isFinite(apy)) continue;
       opportunities.push({
         symbol,
+        marketName: KAMINO_MAIN_MARKET_NAME,
         mint: reserve.stats.mintAddress,
         reserve: reserve.address,
         side,
@@ -298,6 +304,7 @@ export const simulateHealthSchema = z.object({
 
 export interface HealthSimulation {
   action: ActionType;
+  marketName: string;
   symbol: string;
   amount: number;
   current: {
@@ -406,6 +413,7 @@ export const simulateHealth: ToolDefinition<
       ok: true,
       data: {
         action: input.action as ActionType,
+        marketName: KAMINO_MAIN_MARKET_NAME,
         symbol: reserve.getTokenSymbol(),
         amount: input.amount,
         current,
