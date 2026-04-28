@@ -1,118 +1,78 @@
-import React from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { TrendingUp, ArrowLeftRight, Wallet, ShieldCheck, type LucideIcon } from 'lucide-react';
+import HeroCell from './landing/HeroCell';
+import SysMetricsCell from './landing/SysMetricsCell';
+import LatestTxCell from './landing/LatestTxCell';
+import ToolCell from './landing/ToolCell';
+import PipelineCell from './landing/PipelineCell';
+import SponsorStrip from './landing/SponsorStrip';
+import { TOOL_CELLS } from '../lib/landing-content';
 
 const SOLFLARE_WALLET_NAME = 'Solflare';
 const SOLFLARE_INSTALL_URL = 'https://solflare.com/download';
 
-function SolflareLogo({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <circle cx="16" cy="16" r="16" fill="#FFFFFF" fillOpacity="0.12" />
-      <path
-        d="M11.5 9h6.2c2.9 0 4.6 1.7 4.6 4.4 0 2.1-1.1 3.6-3 4.1l3.3 5.5h-3.2l-3-5.2h-2.2V23H11.5V9zm6.1 6.3c1.4 0 2.3-.8 2.3-2 0-1.3-.9-2-2.3-2h-2.9v4h2.9z"
-        fill="#FCA311"
-      />
-    </svg>
-  );
-}
-
-interface Props {
-  onSend: (msg: string) => void;
-}
-
-export default function EmptyState({ onSend }: Props) {
-  const { connected, connecting, wallets } = useWallet();
+export default function EmptyState() {
+  const { connected, connecting, wallets, select } = useWallet();
   const { setVisible } = useWalletModal();
 
-  const handleConnectSolflare = async () => {
+  const handleConnectSolflare = () => {
     if (connected || connecting) return;
     const solflare = wallets.find((w) => w.adapter.name === SOLFLARE_WALLET_NAME);
     if (!solflare) {
       window.open(SOLFLARE_INSTALL_URL, '_blank', 'noopener,noreferrer');
       return;
     }
-    try {
-      await solflare.adapter.connect();
-    } catch {
-      setVisible(true);
-    }
+    // select() updates WalletProvider's walletName → adapter binding → triggers
+    // autoConnect via WalletProviderBase's useEffect. Calling adapter.connect()
+    // directly (the previous approach) bypasses that state propagation, so
+    // useWallet().connected stays false even after the wallet authorizes.
+    select(solflare.adapter.name);
   };
 
+  const handleUseAnotherWallet = () => setVisible(true);
+
   return (
-    <div className="flex-1 flex items-center justify-center p-8">
-      <div className="text-center max-w-md">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-kami-accent to-purple-400 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-6">
-          K
-        </div>
-        <h2 className="text-xl font-semibold text-white mb-2">Welcome to Kami</h2>
-        <p className="text-sm text-kami-muted mb-8 leading-relaxed">
-          Your AI co-pilot for Kamino Finance on Solana. Ask about your obligations, find yield,
-          simulate health factors, or deposit / borrow / withdraw — all in plain English.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
-          {(
-            [
-              {
-                Icon: TrendingUp,
-                title: 'Live Yields',
-                desc: 'Find best APYs on Kamino',
-                query: 'What are the best Kamino yields right now?',
-              },
-              {
-                Icon: ArrowLeftRight,
-                title: 'Build & Sign',
-                desc: 'Deposit, borrow, withdraw, repay',
-                query: 'Show me a 5 USDC deposit example',
-              },
-              {
-                Icon: Wallet,
-                title: 'Portfolio',
-                desc: 'Your Kamino positions + APY',
-                query: 'Show me my Kamino portfolio',
-              },
-              {
-                Icon: ShieldCheck,
-                title: 'Health Sim',
-                desc: 'Liquidation-risk checks',
-                query: 'Will my borrow position liquidate at SOL $50?',
-              },
-            ] satisfies Array<{ Icon: LucideIcon; title: string; desc: string; query: string }>
-          ).map(({ Icon, title, desc, query }) => (
-            <button
-              key={title}
-              type="button"
-              onClick={() => onSend(query)}
-              className="text-left p-3 rounded-xl border border-kami-border bg-kami-surface/50 hover:bg-kami-surface transition-colors cursor-pointer"
-            >
-              <Icon className="w-5 h-5 text-kami-accent mb-2" aria-hidden="true" />
-              <div className="text-sm font-medium text-white">{title}</div>
-              <div className="text-xs text-kami-muted">{desc}</div>
-            </button>
-          ))}
+    <div className="flex-1 overflow-y-auto bg-kami-sepiaBg text-kami-cream relative">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, rgba(245,230,211,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(245,230,211,0.03) 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full bg-kami-amberHaze blur-3xl pointer-events-none"
+        aria-hidden="true"
+      />
+
+      <div className="relative max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+        <div className="flex items-center justify-between font-mono text-xs text-kami-creamMuted uppercase tracking-wider mb-6 lg:mb-10">
+          <span>&gt; KAMI · v1.0 · MAINNET</span>
+          <span className="inline-flex items-center gap-2">
+            [sys.status: online]
+            <span
+              className="w-2 h-2 rounded-full bg-kami-amber animate-pulse-dot"
+              aria-hidden="true"
+            />
+          </span>
         </div>
 
-        {!connected && (
-          <button
-            type="button"
-            onClick={handleConnectSolflare}
-            disabled={connecting}
-            className="w-full flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-gradient-to-r from-[#FCA311] to-[#E8920D] text-black font-semibold hover:opacity-95 active:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-wait"
-          >
-            <SolflareLogo className="w-5 h-5" />
-            {connecting ? 'Opening Solflare…' : 'Connect with Solflare'}
-          </button>
-        )}
-        {!connected && (
-          <button
-            type="button"
-            onClick={() => setVisible(true)}
-            className="mt-2 w-full text-xs text-kami-muted hover:text-kami-text transition-colors"
-          >
-            Use another Solana wallet
-          </button>
-        )}
+        <div className="grid grid-cols-12 gap-3 lg:gap-4">
+          <HeroCell
+            connecting={connecting}
+            onConnectSolflare={handleConnectSolflare}
+            onUseAnotherWallet={handleUseAnotherWallet}
+          />
+          <SysMetricsCell delay={2} />
+          <LatestTxCell delay={3} />
+          {TOOL_CELLS.map((tool, i) => (
+            <ToolCell key={tool.name} tool={tool} delay={4 + i} />
+          ))}
+          <PipelineCell delay={8} />
+          <SponsorStrip />
+        </div>
       </div>
     </div>
   );
