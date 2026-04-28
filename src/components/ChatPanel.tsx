@@ -4,7 +4,6 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import type { Conversation } from '../types';
 import ChatMessageComponent from './ChatMessage';
 import ChatInput from './ChatInput';
-import EmptyState from './EmptyState';
 
 interface Props {
   conversation: Conversation;
@@ -62,7 +61,7 @@ export default function ChatPanel({ conversation, isStreaming, onSend, onStop, o
           </div>
         </div>
       ) : (
-        <EmptyState />
+        <div className="flex-1" />
       )}
 
       {/* Input */}
