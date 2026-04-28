@@ -4,7 +4,6 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import type { Conversation } from '../types';
 import ChatMessageComponent from './ChatMessage';
 import ChatInput from './ChatInput';
-import TypingIndicator from './TypingIndicator';
 import EmptyState from './EmptyState';
 
 interface Props {
@@ -28,8 +27,6 @@ export default function ChatPanel({ conversation, isStreaming, onSend, onStop, o
   };
 
   const hasMessages = conversation.messages.length > 0;
-  const lastMsg = conversation.messages[conversation.messages.length - 1];
-  const showTyping = isStreaming && lastMsg?.role === 'assistant' && lastMsg.content === '';
 
   return (
     <div className="flex-1 flex flex-col h-full min-w-0">
@@ -61,7 +58,6 @@ export default function ChatPanel({ conversation, isStreaming, onSend, onStop, o
             {conversation.messages.map((msg) => (
               <ChatMessageComponent key={msg.id} message={msg} />
             ))}
-            {showTyping && <TypingIndicator />}
             <div ref={messagesEndRef} />
           </div>
         </div>

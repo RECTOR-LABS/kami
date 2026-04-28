@@ -50,4 +50,25 @@ describe('ChatMessage', () => {
     render(<ChatMessage message={assistantMsg({})} />);
     expect(screen.queryByRole('button', { name: /connect wallet/i })).not.toBeInTheDocument();
   });
+
+  it('renders 3 pulsing dots when content is empty and no tool calls', () => {
+    const { container } = render(
+      <ChatMessage message={assistantMsg({ content: '' })} />
+    );
+    const dots = container.querySelectorAll('.typing-dot');
+    expect(dots.length).toBe(3);
+    // No empty markdown body alongside dots
+    expect(screen.queryByText('Hi there.')).not.toBeInTheDocument();
+  });
+
+  it('hides the dots once content arrives (re-render with content)', () => {
+    const { container, rerender } = render(
+      <ChatMessage message={assistantMsg({ content: '' })} />
+    );
+    expect(container.querySelectorAll('.typing-dot').length).toBe(3);
+
+    rerender(<ChatMessage message={assistantMsg({ content: 'Hello world.' })} />);
+    expect(container.querySelectorAll('.typing-dot').length).toBe(0);
+    expect(screen.getByText('Hello world.')).toBeInTheDocument();
+  });
 });
