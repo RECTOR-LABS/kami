@@ -106,4 +106,19 @@ describe('getVanillaPda memoization', () => {
     expect(klendMocks.toPda).toHaveBeenNthCalledWith(1, MARKET, WALLET_A);
     expect(klendMocks.toPda).toHaveBeenNthCalledWith(2, MARKET, WALLET_B);
   });
+
+  it('evicts the cache entry when the underlying toPda call rejects', async () => {
+    const error = new Error('SDK rejected');
+    klendMocks.toPda.mockRejectedValueOnce(error);
+
+    await expect(getVanillaPda(MARKET, WALLET_A)).rejects.toThrow('SDK rejected');
+
+    // Next call should NOT return the rejected promise — it should retry.
+    klendMocks.toPda.mockResolvedValueOnce(
+      'retry-success-pda' as ReturnType<typeof address>,
+    );
+    const retryPda = await getVanillaPda(MARKET, WALLET_A);
+    expect(retryPda).toBe('retry-success-pda');
+    expect(klendMocks.toPda).toHaveBeenCalledTimes(2);
+  });
 });

@@ -71,7 +71,15 @@ export function getVanillaPda(market: Address, wallet: Address): Promise<Address
   const key = `${market}:${wallet}`;
   let promise = pdaCache.get(key);
   if (!promise) {
-    promise = new VanillaObligation(PROGRAM_ID).toPda(market, wallet);
+    // Catch-and-evict: a rejected promise must NOT poison the cache for the
+    // session. PDA derivation is deterministic on valid inputs so this branch
+    // is near-zero in practice, but the eviction prevents permanent dead-key
+    // failure if the SDK or program ID ever changes shape.
+    promise = new VanillaObligation(PROGRAM_ID).toPda(market, wallet)
+      .catch((err) => {
+        pdaCache.delete(key);
+        return Promise.reject(err);
+      });
     pdaCache.set(key, promise);
   }
   return promise;
