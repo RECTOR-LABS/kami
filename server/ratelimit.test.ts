@@ -56,16 +56,6 @@ describe('identify', () => {
     expect(identify(req)).toBe('203.0.113.1');
   });
 
-  it('returns "anonymous" when no IP headers are present outside production', () => {
-    const origEnv = process.env.NODE_ENV;
-    delete process.env.NODE_ENV;
-    try {
-      expect(identify(mockReq({}))).toBe('anonymous');
-    } finally {
-      if (origEnv !== undefined) process.env.NODE_ENV = origEnv;
-    }
-  });
-
   it('returns empty string when no IP headers are present in production (fail-closed)', () => {
     const origEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
@@ -85,6 +75,17 @@ describe('identify', () => {
   it('trims whitespace from header values', () => {
     const req = mockReq({ 'x-forwarded-for': '  203.0.113.1  ,  10.0.0.2  ' });
     expect(identify(req)).toBe('203.0.113.1');
+  });
+
+  it('returns a dev-prefixed UUID-shaped token outside production when no IP headers are present', () => {
+    const origEnv = process.env.NODE_ENV;
+    delete process.env.NODE_ENV;
+    try {
+      const id = identify(mockReq({}));
+      expect(id).toMatch(/^dev-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    } finally {
+      if (origEnv !== undefined) process.env.NODE_ENV = origEnv;
+    }
   });
 });
 

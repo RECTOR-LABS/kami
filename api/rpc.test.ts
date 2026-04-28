@@ -163,7 +163,7 @@ describe('api/rpc handler', () => {
     expect(JSON.parse(cap.getBody()).error).toBe('Invalid JSON body');
   });
 
-  it('returns 403 when a denied method is in a single call', async () => {
+  it('returns 403 when a disallowed method is in a single call', async () => {
     const req = makeReq({
       body: '{"jsonrpc":"2.0","id":1,"method":"getProgramAccounts"}',
     });
@@ -175,7 +175,7 @@ describe('api/rpc handler', () => {
     expect(body.hint).toContain('Helius');
   });
 
-  it('returns 403 when a denied method is in a batch', async () => {
+  it('returns 403 when a disallowed method is in a batch', async () => {
     const req = makeReq({
       body: JSON.stringify([
         { jsonrpc: '2.0', id: 1, method: 'getHealth' },
@@ -232,7 +232,7 @@ describe('api/rpc handler', () => {
         headers: { 'content-type': 'application/json' },
       });
     });
-    const payload = '{"jsonrpc":"2.0","id":1,"method":"getSlot"}';
+    const payload = '{"jsonrpc":"2.0","id":1,"method":"getBalance"}';
     const req = makeReq({ body: payload });
     const cap = makeRes();
     await handler(req, cap.res);

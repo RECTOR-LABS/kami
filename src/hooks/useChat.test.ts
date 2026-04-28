@@ -291,3 +291,125 @@ describe('useChat renameConversation', () => {
     expect(result.current.conversations[0].title).toBe('keep this');
   });
 });
+
+describe('useChat sendMessage streaming', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function streamResponse(chunks: string[]): Response {
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+  }
+
+  it('accumulates text-delta chunks into the assistant message content', async () => {
+    global.fetch = vi.fn(async () =>
+      streamResponse([
+        'data: {"text":"Hello"}\n',
+        'data: {"text":", "}\n',
+        'data: {"text":"world."}\n',
+        'data: [DONE]\n',
+      ])
+    ) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage('hi');
+    });
+
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const assistantMsg = result.current.activeConversation.messages.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg!.content).toBe('Hello, world.');
+  });
+
+  it('threads toolCall + toolResult chunks into messages[last].toolCalls', async () => {
+    global.fetch = vi.fn(async () =>
+      streamResponse([
+        'data: {"toolCall":{"id":"tc-1","name":"getPortfolio"}}\n',
+        'data: {"toolResult":{"id":"tc-1","name":"getPortfolio","output":{"ok":true,"data":{"positions":[]}}}}\n',
+        'data: {"text":"You have no positions."}\n',
+        'data: [DONE]\n',
+      ])
+    ) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage('show me my portfolio');
+    });
+
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const assistantMsg = result.current.activeConversation.messages.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    expect(assistantMsg!.toolCalls).toHaveLength(1);
+    expect(assistantMsg!.toolCalls![0].id).toBe('tc-1');
+    expect(assistantMsg!.toolCalls![0].name).toBe('getPortfolio');
+    expect(assistantMsg!.toolCalls![0].status).toBe('done');
+    expect(assistantMsg!.content).toBe('You have no positions.');
+  });
+
+  it('marks toolCalls as error when a toolError chunk arrives', async () => {
+    global.fetch = vi.fn(async () =>
+      streamResponse([
+        'data: {"toolCall":{"id":"tc-1","name":"buildDeposit"}}\n',
+        'data: {"toolError":{"id":"tc-1","name":"buildDeposit","error":"insufficient balance"}}\n',
+        'data: [DONE]\n',
+      ])
+    ) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage('deposit 5 USDC');
+    });
+
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const assistantMsg = result.current.activeConversation.messages.find((m) => m.role === 'assistant');
+    expect(assistantMsg!.toolCalls).toHaveLength(1);
+    expect(assistantMsg!.toolCalls![0].status).toBe('error');
+    expect(assistantMsg!.toolCalls![0].error).toBe('insufficient balance');
+  });
+
+  it('aborts the in-flight stream when stopStreaming is called', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = vi.fn((_url: unknown, init: unknown) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise(() => {});
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(capturedSignal?.aborted).toBe(false);
+
+    act(() => {
+      result.current.stopStreaming();
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(result.current.isStreaming).toBe(false);
+  });
+});

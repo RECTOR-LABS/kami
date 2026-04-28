@@ -171,7 +171,7 @@ export default function Sidebar({
                   className="flex-1 min-w-0 bg-transparent border border-kami-border rounded px-1 py-0.5 text-sm text-white focus:outline-none focus:border-kami-accent"
                 />
               ) : (
-                <span className="flex-1 truncate">{conv.title}</span>
+                <span className="flex-1 truncate" title={conv.title}>{conv.title}</span>
               )}
               {editingId !== conv.id && (
                 <>
