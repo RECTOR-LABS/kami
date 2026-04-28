@@ -193,3 +193,101 @@ describe('useChat 4xx error rendering integration', () => {
     expect(assistantMsg!.content).toBe('Rate limited — try again in 12s.');
   });
 });
+
+describe('useChat clearAllConversations', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('replaces all conversations with one fresh empty conversation', () => {
+    const conv1 = { id: 'c1', title: 'one', messages: [], createdAt: 1, updatedAt: 1 };
+    const conv2 = { id: 'c2', title: 'two', messages: [], createdAt: 2, updatedAt: 2 };
+    const conv3 = { id: 'c3', title: 'three', messages: [], createdAt: 3, updatedAt: 3 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1, conv2, conv3]));
+    localStorage.setItem('kami_active_conversation', 'c2');
+
+    const { result } = renderHook(() => useChat());
+    expect(result.current.conversations.length).toBe(3);
+
+    act(() => {
+      result.current.clearAllConversations();
+    });
+
+    expect(result.current.conversations.length).toBe(1);
+    expect(result.current.conversations[0].id).not.toBe('c1');
+    expect(result.current.conversations[0].id).not.toBe('c2');
+    expect(result.current.conversations[0].id).not.toBe('c3');
+    expect(result.current.conversations[0].messages.length).toBe(0);
+    expect(result.current.activeId).toBe(result.current.conversations[0].id);
+  });
+
+  it('aborts in-flight stream when clearAllConversations is called', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = vi.fn((_url: unknown, init: unknown) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise(() => {});
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(capturedSignal?.aborted).toBe(false);
+
+    act(() => {
+      result.current.clearAllConversations();
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+});
+
+describe('useChat renameConversation', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('updates the title for the matching conversation id', () => {
+    const conv1 = { id: 'c1', title: 'old title', messages: [], createdAt: 1, updatedAt: 1 };
+    const conv2 = { id: 'c2', title: 'untouched', messages: [], createdAt: 2, updatedAt: 2 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1, conv2]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.renameConversation('c1', 'fresh title');
+    });
+
+    const c1 = result.current.conversations.find((c) => c.id === 'c1');
+    const c2 = result.current.conversations.find((c) => c.id === 'c2');
+    expect(c1?.title).toBe('fresh title');
+    expect(c2?.title).toBe('untouched');
+  });
+
+  it('rejects empty or whitespace-only titles as a silent no-op', () => {
+    const conv1 = { id: 'c1', title: 'keep this', messages: [], createdAt: 1, updatedAt: 1 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.renameConversation('c1', '   ');
+    });
+
+    expect(result.current.conversations[0].title).toBe('keep this');
+
+    act(() => {
+      result.current.renameConversation('c1', '');
+    });
+
+    expect(result.current.conversations[0].title).toBe('keep this');
+  });
+});

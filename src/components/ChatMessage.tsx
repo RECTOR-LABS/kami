@@ -23,6 +23,11 @@ export default function ChatMessage({ message }: Props) {
   }
 
   const showConnectCta = message.toolCalls?.some((c) => c.status === 'wallet-required') ?? false;
+  const isWaitingForFirstToken =
+    message.content === '' &&
+    !message.toolCalls?.length &&
+    !message.pendingTransaction &&
+    !showConnectCta;
 
   return (
     <div className="flex mb-4 animate-fade-in">
@@ -33,7 +38,15 @@ export default function ChatMessage({ message }: Props) {
         {message.toolCalls && message.toolCalls.length > 0 && (
           <ToolCallBadges calls={message.toolCalls} />
         )}
-        <div className="text-sm space-y-1"><Markdown text={message.content} /></div>
+        {isWaitingForFirstToken ? (
+          <div className="flex items-center gap-1.5 px-4 py-3 bg-kami-surface rounded-2xl rounded-bl-md border border-kami-border w-fit">
+            <div className="typing-dot w-2 h-2 rounded-full bg-kami-accent" />
+            <div className="typing-dot w-2 h-2 rounded-full bg-kami-accent" />
+            <div className="typing-dot w-2 h-2 rounded-full bg-kami-accent" />
+          </div>
+        ) : (
+          <div className="text-sm space-y-1"><Markdown text={message.content} /></div>
+        )}
         {message.pendingTransaction && (
           <SignTransactionCard transaction={message.pendingTransaction} />
         )}

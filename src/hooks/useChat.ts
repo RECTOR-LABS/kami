@@ -117,6 +117,25 @@ export function useChat() {
     [conversations, activeId, persist, switchConversation]
   );
 
+  const clearAllConversations = useCallback(() => {
+    abortRef.current?.abort();
+    const fresh = createConversation();
+    persist([fresh]);
+    switchConversation(fresh.id);
+  }, [persist, switchConversation]);
+
+  const renameConversation = useCallback(
+    (id: string, title: string) => {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      const updated = conversations.map((c) =>
+        c.id === id ? { ...c, title: trimmed } : c
+      );
+      persist(updated);
+    },
+    [conversations, persist]
+  );
+
   const sendMessage = useCallback(
     async (content: string, walletAddress?: string | null) => {
       if (!content.trim() || isStreaming) return;
@@ -312,5 +331,7 @@ export function useChat() {
     newConversation,
     switchConversation,
     deleteConversation,
+    clearAllConversations,
+    renameConversation,
   };
 }
