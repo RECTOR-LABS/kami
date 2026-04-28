@@ -665,6 +665,15 @@ async function buildPendingTransaction(
     kaminoAction = await compileKaminoAction(action, mint, amountStr, ownerSigner, market, currentSlot);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    // Server-side triage: keep the raw error and request context. The
+    // user-facing message stays scrubbed below.
+    console.error('[Kami] KaminoAction build failed', {
+      action,
+      symbol: input.symbol,
+      amount: input.amount,
+      wallet,
+      err,
+    });
     return { ok: false, error: `Failed to build ${action} transaction: ${message}` };
   }
 
