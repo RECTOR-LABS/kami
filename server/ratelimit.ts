@@ -4,6 +4,8 @@ import { Redis } from '@upstash/redis';
 
 type Duration = `${number} ${'ms' | 's' | 'm' | 'h' | 'd'}`;
 
+const DEV_TOKEN: string = `dev-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'fallback-' + Date.now().toString(36)}`;
+
 export interface LimiterConfig {
   name: string;
   limit: number;
@@ -61,8 +63,11 @@ export function identify(req: IncomingMessage): string {
   if (ip) return ip;
   // Vercel always populates x-forwarded-for on incoming traffic. A missing IP
   // in production is anomalous — refuse to bucket every such caller under a
-  // shared 'anonymous' key that a single actor could then exhaust and DoS.
-  return process.env.NODE_ENV === 'production' ? '' : 'anonymous';
+  // shared key that a single actor could then exhaust and DoS. Outside
+  // production, return a per-process random token so a dev build accidentally
+  // pointed at the real Upstash doesn't share the 'anonymous' bucket with
+  // every other dev caller.
+  return process.env.NODE_ENV === 'production' ? '' : DEV_TOKEN;
 }
 
 export async function applyLimit(
