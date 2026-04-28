@@ -199,6 +199,10 @@ describe('useChat clearAllConversations', () => {
     localStorage.clear();
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('replaces all conversations with one fresh empty conversation', () => {
     const conv1 = { id: 'c1', title: 'one', messages: [], createdAt: 1, updatedAt: 1 };
     const conv2 = { id: 'c2', title: 'two', messages: [], createdAt: 2, updatedAt: 2 };
@@ -219,5 +223,27 @@ describe('useChat clearAllConversations', () => {
     expect(result.current.conversations[0].id).not.toBe('c3');
     expect(result.current.conversations[0].messages.length).toBe(0);
     expect(result.current.activeId).toBe(result.current.conversations[0].id);
+  });
+
+  it('aborts in-flight stream when clearAllConversations is called', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    global.fetch = vi.fn((_url: unknown, init: unknown) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise(() => {});
+    }) as unknown as typeof fetch;
+
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(capturedSignal?.aborted).toBe(false);
+
+    act(() => {
+      result.current.clearAllConversations();
+    });
+
+    expect(capturedSignal?.aborted).toBe(true);
   });
 });
