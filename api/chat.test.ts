@@ -409,4 +409,30 @@ describe('api/chat handler', () => {
     (req as unknown as Readable).emit('close');
     expect(chatMocks.lastSignal?.aborted).toBe(false);
   });
+
+  it('returns 429 with X-RateLimit-Limit: 0 when identify() yields an empty string', async () => {
+    // Mirrors the contract applyLimit('') already enforces in
+    // server/ratelimit.ts:74-76 — production with no x-forwarded-for must
+    // not bucket all anonymous callers under one shared key. The handler's
+    // job is to convert {ok:false, limit:0} into a 429 with the expected
+    // wire shape.
+    ratelimitMocks.identify = '';
+    ratelimitMocks.next = {
+      ok: false,
+      limit: 0,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+    };
+    const cap = makeRes();
+    await handler(makeReq({ body: validBody() }), cap.res);
+    expect(cap.getStatus()).toBe(429);
+    expect(cap.headers['x-ratelimit-limit']).toBe('0');
+    expect(cap.headers['x-ratelimit-remaining']).toBe('0');
+    expect(cap.headers['retry-after']).toMatch(/^\d+$/);
+    expect(ratelimitMocks.calls).toHaveLength(1);
+    expect(ratelimitMocks.calls[0].identifier).toBe('');
+    const body = JSON.parse(cap.getBody());
+    expect(body.error).toBe('Too many requests');
+    expect(body.retryAfterSeconds).toBeGreaterThanOrEqual(1);
+  });
 });

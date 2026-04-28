@@ -90,8 +90,13 @@ export async function applyLimit(
   }
 }
 
-/** For tests only — clears the in-memory singleton so env-var changes take effect. */
+/** For tests only — clears the in-memory singleton so env-var changes take effect.
+ *  Throws when invoked outside `NODE_ENV === 'test'` to defend against accidental
+ *  use in app code (the helper exists in the prod bundle but refuses to run). */
 export function _resetForTesting(): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('_resetForTesting may only be called when NODE_ENV === "test"');
+  }
   redisSingleton = undefined;
   limiterCache.clear();
 }

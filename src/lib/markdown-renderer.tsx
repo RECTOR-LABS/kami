@@ -75,6 +75,11 @@ const components: Components = {
     );
   },
   code: ({ className, children }) => {
+    // NOTE: react-markdown's `code` component receives ReactNode. In practice
+    // it is a string (inline code) or an array of strings (mixed inline). The
+    // `else ''` branch is a safety net for unexpected ReactElement children
+    // (e.g., when a remark plugin injects nodes); empty string disables the
+    // risk-chip detection rather than throwing.
     const text =
       typeof children === 'string'
         ? children
@@ -103,6 +108,11 @@ const components: Components = {
     );
   },
   pre: ({ children }) => {
+    // NOTE: react-markdown v10 + the `code` override above means
+    // `children[0].type` is the user-overridden code component, NOT the
+    // literal string 'code'. Read className directly off `children[0].props`.
+    // Do not "simplify" to `first.type === 'code'` — it fails silently and
+    // breaks the syntax-highlight language label on fenced code blocks.
     const first = React.Children.toArray(children)[0];
     const className = React.isValidElement<{ className?: string }>(first)
       ? (first.props.className ?? '')
