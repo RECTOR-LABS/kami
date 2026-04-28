@@ -18,15 +18,15 @@ VO: *"DeFi dashboards assume you already know what you're doing. Kami flips that
 
 ## Shot 2 — Connect (0:25–0:40)
 
-UI: `kami.rectorspace.com` landing — "Welcome to Kami" tiles visible, 4 suggestion chips along the bottom, "Connect with Solflare" orange CTA center.
+UI: `kami.rectorspace.com` landing — gradient **K** logo + "Welcome to Kami" heading, four feature cards arranged in a 2×2 grid (**Live Yields** / **Build & Sign** / **Portfolio** / **Health Sim**), and the orange **Connect with Solflare** CTA below the grid.
 
-Action: click **Connect with Solflare** → Solflare extension popup → Approve. Wallet badge `HciZ..25En` appears top-right, tiles stay, CTA disappears.
+Action: click **Connect with Solflare** → Solflare extension popup → Approve. Wallet badge `HciZ..25En` appears top-right, the cards stay, the Connect CTA disappears.
 
 VO: *"Connect a Solana wallet — Solflare recommended, or anything Wallet-Standard compatible. No new accounts, no sign-in forms. The wallet is the auth."*
 
 ## Shot 3 — Find yield (0:40–0:55)
 
-Action: click the chip **"What's the best USDC supply APY on Kamino right now?"** → it auto-submits.
+Action: click the **Live Yields** card (top-left of the 2×2 grid) → it fires *"What are the best Kamino yields right now?"* and auto-submits.
 
 UI: tool-call badges render: `Calling findYield` (green). Assistant streams a markdown **table** with columns [Market · Reserve · Supply APY · Borrow APY · Utilization]. Top row highlighted.
 
