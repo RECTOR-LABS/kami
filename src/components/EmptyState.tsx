@@ -12,21 +12,21 @@ const SOLFLARE_WALLET_NAME = 'Solflare';
 const SOLFLARE_INSTALL_URL = 'https://solflare.com/download';
 
 export default function EmptyState() {
-  const { connected, connecting, wallets } = useWallet();
+  const { connected, connecting, wallets, select } = useWallet();
   const { setVisible } = useWalletModal();
 
-  const handleConnectSolflare = async () => {
+  const handleConnectSolflare = () => {
     if (connected || connecting) return;
     const solflare = wallets.find((w) => w.adapter.name === SOLFLARE_WALLET_NAME);
     if (!solflare) {
       window.open(SOLFLARE_INSTALL_URL, '_blank', 'noopener,noreferrer');
       return;
     }
-    try {
-      await solflare.adapter.connect();
-    } catch {
-      setVisible(true);
-    }
+    // select() updates WalletProvider's walletName → adapter binding → triggers
+    // autoConnect via WalletProviderBase's useEffect. Calling adapter.connect()
+    // directly (the previous approach) bypasses that state propagation, so
+    // useWallet().connected stays false even after the wallet authorizes.
+    select(solflare.adapter.name);
   };
 
   const handleUseAnotherWallet = () => setVisible(true);

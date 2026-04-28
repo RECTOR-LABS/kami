@@ -3,20 +3,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LATEST_TX, SPONSORS, TOOL_CELLS } from '../lib/landing-content';
 
 const setVisible = vi.fn();
-const solflareConnect = vi.fn();
+const select = vi.fn();
+
+const walletState = vi.hoisted(() => ({
+  wallets: [{ adapter: { name: 'Solflare' } }] as Array<{ adapter: { name: string } }>,
+}));
 
 vi.mock('@solana/wallet-adapter-react', () => ({
   useWallet: () => ({
     connected: false,
     connecting: false,
-    wallets: [
-      {
-        adapter: {
-          name: 'Solflare',
-          connect: solflareConnect,
-        },
-      },
-    ],
+    wallets: walletState.wallets,
+    select,
   }),
 }));
 
@@ -29,6 +27,7 @@ import EmptyState from './EmptyState';
 describe('EmptyState bento landing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    walletState.wallets = [{ adapter: { name: 'Solflare' } }];
   });
 
   it('renders the hero headline', () => {
@@ -63,10 +62,28 @@ describe('EmptyState bento landing', () => {
     expect(screen.getByText('EXECUTION')).toBeInTheDocument();
   });
 
-  it('clicking the CTA calls solflare.adapter.connect()', () => {
+  it('clicking the CTA calls select("Solflare") to drive WalletProvider autoConnect', () => {
+    // Calling adapter.connect() directly (the previous approach) connects the
+    // wallet but bypasses WalletProvider's walletName → adapter binding, so
+    // useWallet().connected stays false. select() is the proper API.
     render(<EmptyState />);
     fireEvent.click(screen.getByRole('button', { name: /connect with solflare/i }));
-    expect(solflareConnect).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledWith('Solflare');
+  });
+
+  it('clicking the CTA opens the install URL when Solflare is not detected', () => {
+    walletState.wallets = [];
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    render(<EmptyState />);
+    fireEvent.click(screen.getByRole('button', { name: /connect with solflare/i }));
+    expect(open).toHaveBeenCalledWith(
+      'https://solflare.com/download',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    expect(select).not.toHaveBeenCalled();
+    open.mockRestore();
   });
 
   it('clicking "Use another Solana wallet" opens the wallet modal', () => {
