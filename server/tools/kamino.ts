@@ -80,6 +80,14 @@ async function getMarket(): Promise<KaminoMarket> {
   return market;
 }
 
+/**
+ * Decimal → number for display purposes only.
+ *
+ * Loses precision when |d| > 2^53 (~9e15). Do not use for amounts that will be
+ * hashed, sent on-chain, or compared for equality — pass the raw Decimal through
+ * to the SDK in those cases. Returns 0 when the conversion overflows to ±Infinity
+ * (Decimal can hold values larger than Number.MAX_VALUE).
+ */
 export function toNumber(d: Decimal): number {
   return Number.isFinite(d.toNumber()) ? d.toNumber() : 0;
 }
