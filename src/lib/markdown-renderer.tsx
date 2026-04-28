@@ -11,6 +11,20 @@ function isSafeHref(url: string): boolean {
   }
 }
 
+const RISK_PATTERN = /^:risk-(high|medium|low):$/;
+
+const RISK_STYLES = {
+  high: 'bg-kami-danger/10 border-kami-danger/30 text-kami-danger',
+  medium: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+  low: 'bg-kami-success/10 border-kami-success/30 text-kami-success',
+} as const;
+
+const RISK_LABELS = {
+  high: 'High risk',
+  medium: 'Medium risk',
+  low: 'Low risk',
+} as const;
+
 const components: Components = {
   h1: ({ children }) => (
     <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>
@@ -61,6 +75,23 @@ const components: Components = {
     );
   },
   code: ({ className, children }) => {
+    const text =
+      typeof children === 'string'
+        ? children
+        : Array.isArray(children)
+          ? children.join('')
+          : '';
+    const riskMatch = RISK_PATTERN.exec(text);
+    if (riskMatch) {
+      const level = riskMatch[1] as keyof typeof RISK_STYLES;
+      return (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded-md border text-xs font-medium ${RISK_STYLES[level]}`}
+        >
+          {RISK_LABELS[level]}
+        </span>
+      );
+    }
     const isBlock = typeof className === 'string' && className.startsWith('language-');
     if (isBlock) {
       return <code className={`${className} text-sm font-mono text-kami-text`}>{children}</code>;
