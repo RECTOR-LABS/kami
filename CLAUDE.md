@@ -15,7 +15,7 @@ returns a ready-to-sign mainnet transaction.
 - **Live:** https://kami.rectorspace.com (Vercel auto-deploys from `main`)
 - **Bounty:** Eitherway Track — Frontier Hackathon 2026 (Kamino prize)
 - **Submission deadline:** 2026-05-12
-- **Repo:** RECTOR-LABS/kami (public, mirrored to GitLab)
+- **Repo:** RECTOR-LABS/kami (public, MIT licensed, mirrored to GitLab)
 - **Strategy doc:** `STRATEGY.md`
 - **Bounty deliverable:** `docs/kamino-integration.md`
 
@@ -86,7 +86,7 @@ pnpm exec tsc -b                                      # both, project mode (matc
 pnpm build                                            # tsc -b + vite build
 
 # Tests
-pnpm test:run                                         # 106+ vitest tests
+pnpm test:run                                         # 186 vitest tests across 21 files
 pnpm test:coverage                                    # with v8 coverage report
 
 # Production smoke
@@ -103,7 +103,7 @@ ssh kami 'cd /home/kami/redis && docker compose logs --tail=50 redis-http'
 ./scripts/rotate-srh-token.sh
 ```
 
-## Stack gotchas (cumulative through Day 8)
+## Stack gotchas (cumulative through Day 17)
 
 - **Vercel `api/*.ts` MUST be Node-style** `(req: IncomingMessage, res: ServerResponse)`.
   Web-fetch style silently hangs with `FUNCTION_INVOCATION_TIMEOUT`. Pipe Web streams via
@@ -141,21 +141,46 @@ ssh kami 'cd /home/kami/redis && docker compose logs --tail=50 redis-http'
   they fail open, no 500s. ~2s window.
 - **Cloudflared self-disconnect:** restarting cloudflared on reclabs3 kicks an SSH session
   that was tunneling through it. Reconnect and proceed.
+- **`pnpm exec tsc -b` skips `server/tsconfig.json`.** Root `tsconfig.json` has no project
+  references, so `tsc -b` only validates client. Always run all 3 typecheck commands locally
+  before pushing server-side changes (memory `tsc-b-skips-server-tsconfig.md`). The Day 11
+  oracle-staleness CI failure (`@types/bn.js` missing) escaped local checks because of this.
+- **`Array.prototype.at()` is ES2022.** Root `tsconfig.json` `lib` targets ES2020; `.at()`
+  fails client typecheck on `src/*`. Use `arr[arr.length - 1]` for last-element access in
+  `src/`. Server tsconfig targets ES2022 — trap is client-only (memory
+  `array-at-es2020-trap.md`).
+- **Vitest shared mock state via `vi.hoisted()`.** For mocks that need to share state with
+  test bodies, prefer `vi.hoisted()` over bare `const` — works under Vitest 4.x auto-detect
+  but fragile across refactors (memory `vitest-vi-hoisted-convention.md`).
 
-## Phase progress (state at end of Day 8)
+## Phase progress (state at end of Day 17)
 
-- **Phase 1 — Extend (Days 2-15):** ✓ Complete. All 7 Kamino tools live-validated mainnet.
+- **Phase 1 — Extend (Days 2-5):** ✓ Complete. All 7 Kamino tools live-validated mainnet.
 - **Phase 2 — Production hardening (Days 6-7):** ✓ Complete. Security review, rate-limit live,
   integration docs.
-- **Phase A — Critical pre-submission (Day 8):** ✓ Complete. TODO/FIXME scan clean,
-  Day 7 commits adversarially reviewed (1 critical + 4 majors fixed), api/rpc + api/chat
-  handler integration tests added (60 → 87 tests).
-- **Phase B — Quality (Day 8):** ✓ Complete. ErrorBoundary at root, kamino helpers tested
-  (87 → 106), klend-sdk pin guard CI, redis-kami uptime workflow, doc consistency sweep.
-- **Phase C — Infra hygiene (Day 8):** ✓ Complete. SSH key for kami service account on
-  reclabs3 (replaces root-only ops), automated 90-day SRH_TOKEN rotation script.
-- **Phase D — GTM (Days 9-23):** Pending. Telegram compliance ping, README screenshots,
-  demo video recording, Superteam submission, judging rehearsal — all user-driven.
+- **Phase A/B/C — Pre-submission rigor (Day 8):** ✓ Complete. TODO/FIXME scan clean,
+  ErrorBoundary at root, klend-sdk pin guard CI, redis-kami uptime heartbeat, SRH_TOKEN
+  90-day rotation script, kami-user SSH key on reclabs3 (replaces root-only ops). Tests
+  60 → 106 across 10 files.
+- **QA backlog cleanup (Days 9-16):** ✓ Complete. Umbrella [#3](https://github.com/RECTOR-LABS/kami/issues/3)
+  closed — 27 child issues across 10 PRs. Tests 106 → 186 across 21 files. Sprint sequence:
+  C-1 wallet-not-connected UX (PR [#2](https://github.com/RECTOR-LABS/kami/pull/2));
+  C-3 error visibility (PR [#31](https://github.com/RECTOR-LABS/kami/pull/31));
+  D-12 abort-signal propagation (PR [#32](https://github.com/RECTOR-LABS/kami/pull/32));
+  D-13 oracle-staleness gate (PRs [#33](https://github.com/RECTOR-LABS/kami/pull/33), [#34](https://github.com/RECTOR-LABS/kami/pull/34));
+  C-2 streaming polish (PR [#35](https://github.com/RECTOR-LABS/kami/pull/35));
+  C-3-finish yield-table polish (PR [#36](https://github.com/RECTOR-LABS/kami/pull/36));
+  P3 trivial sweep (PR [#37](https://github.com/RECTOR-LABS/kami/pull/37));
+  P2 server hygiene (PR [#38](https://github.com/RECTOR-LABS/kami/pull/38));
+  P2 UI features (PR [#40](https://github.com/RECTOR-LABS/kami/pull/40));
+  P1 cluster (PR [#41](https://github.com/RECTOR-LABS/kami/pull/41)).
+- **Day 17 — Bounty submission prep:** ✓ Showcase README rewrite (PR [#42](https://github.com/RECTOR-LABS/kami/pull/42)),
+  MIT LICENSE (PR [#43](https://github.com/RECTOR-LABS/kami/pull/43)), demo-script Sprint 4.x sync
+  (PR [#44](https://github.com/RECTOR-LABS/kami/pull/44)), post-bounty backlog filed
+  ([#45](https://github.com/RECTOR-LABS/kami/issues/45) + [#46](https://github.com/RECTOR-LABS/kami/issues/46)).
+- **Phase D — GTM (Days 17-25):** Pending. Empty-state screenshots, demo video recording
+  (~2:30-2:50), tweet thread posting, Telegram compliance ping (Eitherway / Kamino sponsor
+  channels), Superteam submission, judging rehearsal — RECTOR-driven.
 - **A5 — Fresh-wallet first-deposit retest:** Parked. Needs fresh keypair + Solflare
   signing. Low risk per `c17e4b3` diff (text-only since last verification on Day 6).
 
@@ -163,50 +188,65 @@ ssh kami 'cd /home/kami/redis && docker compose logs --tail=50 redis-http'
 
 - **iad1→ams latency:** ~100-120 ms per API call due to VPS-Redis location.
   Mitigation: rate-limit fails open on Redis outage, so latency adds cost but not failure.
-- **616 kB Vite main bundle warning:** non-blocking. Code-split markdown chunk on Day 6
-  saved 48 kB; further splitting deferred (cosmetic Lighthouse improvement only).
+- **616 kB Vite main bundle warning:** non-blocking. Day-6 markdown code-split saved 48 kB;
+  further splitting deferred (cosmetic Lighthouse improvement only).
 - **No `closeObligation` tool:** technically impossible until Kamino ships the instruction
   upstream. ~0.022 SOL stays locked per (user, market) pair. Documented in
   `docs/kamino-integration.md#known-limits` + the LLM system prompt.
 - **No log drain configured:** deliberate. Vercel dashboard sufficient for hackathon scope.
-- **Coverage at 31% global:** the un-mocked surfaces are `server/tools/kamino.ts` (Solana
-  SDK orchestration, validated via mainnet), UI components (need browser/wallet fixtures),
-  `useChat` hook. Day 5-8 code (handlers, guards, ratelimit, walletError, ErrorBoundary)
-  is all ≥ 80% covered.
+- **Test coverage:** 186 vitest tests across 21 files. Day 5-17 production-critical surfaces
+  (handlers, guards, ratelimit, walletError, ErrorBoundary, kamino helpers, `log.ts`,
+  abort-signal propagation, oracle-staleness gate, ChatPanel, Sidebar, EmptyState,
+  ToolCallBadges, markdown-renderer, useChat streaming) are all ≥ 80% covered. SDK
+  orchestration in `server/tools/kamino.ts` validated via Day-6 mainnet round-trip rather
+  than unit tests.
+- **Open post-bounty backlog:** [#39](https://github.com/RECTOR-LABS/kami/issues/39) (D-26
+  empty-msg-on-abort cosmetic UX), [#45](https://github.com/RECTOR-LABS/kami/issues/45)
+  (D-27 useChat `[DONE]` SSE chunk inner-for-break — Sprint 4.3 reviewer "no code change
+  required to ship"), [#46](https://github.com/RECTOR-LABS/kami/issues/46) (umbrella for 13
+  deferred Sprint 4.x cluster minors). All P2/P3, NOT bounty-blocking.
 
 ## File map (key locations)
 
 ```
+LICENSE                   # MIT — added Day 17 (PR #43)
 api/
-  chat.ts          # streaming LLM endpoint (zod-validated, rate-limited)
-  rpc.ts           # JSON-RPC proxy (denylist + batch caps + rate-limited)
-  *.test.ts        # handler integration tests
+  chat.ts                 # streaming LLM endpoint (zod-validated, rate-limited)
+  rpc.ts                  # JSON-RPC proxy (allowlist + batch caps + rate-limited)
+  *.test.ts               # handler integration tests
 server/
-  chat.ts          # createChatStream — single source of truth for tool wiring
-  prompt.ts        # LLM system prompt (Kamino domain, safety rules, rent guidance)
-  ratelimit.ts     # Upstash glue + identify() + applyLimit()
-  rpc-guards.ts    # deniedMethodIn + oversizedParamsIn helpers
-  tools/kamino.ts  # 7 Kamino tools + preflightSimulate + helpers (toNumber, formatSol,
-                   #                                                computeHealthFactor, ...)
-  solana/connection.ts  # RPC client setup
-  index.ts         # Fastify dev server (NOT used in prod)
+  chat.ts                 # createChatStream — single source of truth for tool wiring
+  prompt.ts               # LLM system prompt (Kamino domain, safety rules, rent guidance)
+  ratelimit.ts            # Upstash glue + identify() + applyLimit()
+  rpc-guards.ts           # disallowedMethodIn + oversizedParamsIn helpers (renamed Day 16)
+  log.ts                  # structured JSON logger (added Day 14, reserved-field anti-injection)
+  tools/kamino.ts         # 7 Kamino tools + preflightSimulate + helpers (toNumber, formatSol,
+                          #                                            computeHealthFactor, ...)
+  solana/connection.ts    # RPC client setup (URL-aware singleton, Day 14)
+  index.ts                # Fastify dev server (NOT used in prod)
 src/
   components/
-    ErrorBoundary.tsx       # top-level React error catch (added Day 8)
+    ErrorBoundary.tsx       # top-level React error catch (Day 8)
     SignTransactionCard.tsx # wallet-sign flow + HTTP polling
     WalletProvider.tsx      # Solana wallet adapter wiring (Wallet Standard discovery)
-    ChatPanel.tsx, ChatInput.tsx, ChatMessage.tsx, EmptyState.tsx, Sidebar.tsx
+    ChatPanel.tsx, ChatInput.tsx, ChatMessage.tsx, EmptyState.tsx, Sidebar.tsx,
+    ToolCallBadges.tsx      # tool-call event badges with dedup + ×N suffix (Day 12)
   hooks/useChat.ts          # conversation state + streaming hook
-  lib/markdown-renderer.tsx # react-markdown + remark-gfm wiring
+  lib/markdown-renderer.tsx # react-markdown + remark-gfm wiring + risk chip renderer (Day 12)
   lib/walletError.ts        # wallet error classifier
 docs/
   kamino-integration.md     # bounty deliverable: tool-by-tool SDK mapping
-  demo-script.md            # 2:30-2:50 shot list + VO
+  demo-script.md            # 2:30-2:50 shot list + VO (Sprint 4.x synced Day 17)
   tweet-thread.md           # 5-tweet launch draft
+  superpowers/specs/        # sprint design docs (one per cluster)
+  superpowers/plans/        # sprint implementation plans (one per cluster)
+assets/
+  architecture.svg          # dark-mode end-to-end data flow diagram
+  screenshots/              # placeholder dir — populated by RECTOR via CleanShot X
 scripts/
   rotate-srh-token.sh       # 90-day SRH_TOKEN rotation (Phase C2)
 .github/workflows/
-  test.yml                  # CI: typecheck + 106 tests + build + klend-sdk pin guard
+  test.yml                  # CI: typecheck + 186 tests + build + klend-sdk pin guard
   mirror-gitlab.yml         # force-push main → GitLab
   uptime-redis.yml          # 15-min PING heartbeat for redis-kami
 ```
