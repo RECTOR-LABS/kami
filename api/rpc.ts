@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { applyLimit, identify, type LimitResult } from '../server/ratelimit.js';
-import { deniedMethodIn, oversizedParamsIn } from '../server/rpc-guards.js';
+import { disallowedMethodIn, oversizedParamsIn } from '../server/rpc-guards.js';
 
 export const config = {
   maxDuration: 30,
@@ -82,13 +82,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  const denied = deniedMethodIn(parsed);
-  if (denied) {
+  const disallowed = disallowedMethodIn(parsed);
+  if (disallowed) {
     res.statusCode = 403;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
-        error: `RPC method "${denied}" is not allowed through this proxy`,
+        error: `RPC method "${disallowed}" is not allowed through this proxy`,
         hint: 'Use a public RPC or your own Helius key for heavy historical queries.',
       }),
     );

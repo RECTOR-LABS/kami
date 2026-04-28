@@ -1,30 +1,28 @@
 export const MAX_BATCH_SIZE = 20;
 export const MAX_PARAMS_ARRAY_LENGTH = 100;
 
-export const DENIED_METHODS = new Set([
-  'getProgramAccounts',
-  'getSignaturesForAddress',
-  'getConfirmedSignaturesForAddress2',
-  'getConfirmedBlock',
-  'getBlock',
-  'getBlocks',
-  'getBlocksWithLimit',
-  'getBlockProduction',
-  'getInflationReward',
-  'getRecentPerformanceSamples',
-  'getRecentPrioritizationFees',
-  'getLargestAccounts',
-  'getSupply',
-  'getVoteAccounts',
-  'getClusterNodes',
+export const ALLOWED_METHODS = new Set([
+  // Connectivity / health
+  'getHealth',
+  // Transaction lifecycle
+  'getLatestBlockhash',
+  'simulateTransaction',
+  'sendTransaction',
+  'getSignatureStatuses',
+  'getBlockHeight',
+  'getMinimumBalanceForRentExemption',
+  // Wallet / account reads
+  'getBalance',
+  'getAccountInfo',
+  'getMultipleAccounts',
 ]);
 
-export function deniedMethodIn(payload: unknown): string | null {
+export function disallowedMethodIn(payload: unknown): string | null {
   const calls = Array.isArray(payload) ? payload : [payload];
   for (const c of calls) {
     if (c && typeof c === 'object' && typeof (c as { method?: unknown }).method === 'string') {
       const method = (c as { method: string }).method;
-      if (DENIED_METHODS.has(method)) return method;
+      if (!ALLOWED_METHODS.has(method)) return method;
     }
   }
   return null;
@@ -32,11 +30,10 @@ export function deniedMethodIn(payload: unknown): string | null {
 
 // NOTE: This guard inspects only DIRECT array children of `params`. RPC methods
 // that wrap long arrays inside config objects (e.g.,
-// `params: [{ accounts: [...100 items...] }]`) would slip through. Today's
-// DENIED_METHODS set covers the high-cardinality methods (getProgramAccounts,
-// getSignaturesForAddress, etc.); if a new high-cardinality method ships with
-// nested array params, audit this function for recursive descent before
-// relying on it.
+// `params: [{ accounts: [...100 items...] }]`) would slip through. The current
+// ALLOWED_METHODS set covers methods whose direct-params shape is well-known;
+// if an allowlist addition has nested array params, audit this function for
+// recursive descent before relying on it.
 export function oversizedParamsIn(payload: unknown): string | null {
   if (Array.isArray(payload) && payload.length > MAX_BATCH_SIZE) {
     return `batch of ${payload.length} calls exceeds limit of ${MAX_BATCH_SIZE}`;
