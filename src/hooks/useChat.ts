@@ -117,6 +117,13 @@ export function useChat() {
     [conversations, activeId, persist, switchConversation]
   );
 
+  const clearAllConversations = useCallback(() => {
+    abortRef.current?.abort();
+    const fresh = createConversation();
+    persist([fresh]);
+    switchConversation(fresh.id);
+  }, [persist, switchConversation]);
+
   const sendMessage = useCallback(
     async (content: string, walletAddress?: string | null) => {
       if (!content.trim() || isStreaming) return;
@@ -312,5 +319,6 @@ export function useChat() {
     newConversation,
     switchConversation,
     deleteConversation,
+    clearAllConversations,
   };
 }

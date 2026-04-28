@@ -193,3 +193,31 @@ describe('useChat 4xx error rendering integration', () => {
     expect(assistantMsg!.content).toBe('Rate limited — try again in 12s.');
   });
 });
+
+describe('useChat clearAllConversations', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('replaces all conversations with one fresh empty conversation', () => {
+    const conv1 = { id: 'c1', title: 'one', messages: [], createdAt: 1, updatedAt: 1 };
+    const conv2 = { id: 'c2', title: 'two', messages: [], createdAt: 2, updatedAt: 2 };
+    const conv3 = { id: 'c3', title: 'three', messages: [], createdAt: 3, updatedAt: 3 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1, conv2, conv3]));
+    localStorage.setItem('kami_active_conversation', 'c2');
+
+    const { result } = renderHook(() => useChat());
+    expect(result.current.conversations.length).toBe(3);
+
+    act(() => {
+      result.current.clearAllConversations();
+    });
+
+    expect(result.current.conversations.length).toBe(1);
+    expect(result.current.conversations[0].id).not.toBe('c1');
+    expect(result.current.conversations[0].id).not.toBe('c2');
+    expect(result.current.conversations[0].id).not.toBe('c3');
+    expect(result.current.conversations[0].messages.length).toBe(0);
+    expect(result.current.activeId).toBe(result.current.conversations[0].id);
+  });
+});

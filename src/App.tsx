@@ -18,6 +18,7 @@ function AppContent() {
     newConversation,
     switchConversation,
     deleteConversation,
+    clearAllConversations,
   } = useChat();
 
   return (
@@ -36,6 +37,7 @@ function AppContent() {
         }}
         onDelete={deleteConversation}
         onClose={() => setSidebarOpen(false)}
+        onClearAll={clearAllConversations}
       />
       {activeConversation && (
         <ChatPanel
