@@ -62,7 +62,7 @@ export default function ChatPanel({ conversation, isStreaming, onSend, onStop, o
           </div>
         </div>
       ) : (
-        <EmptyState onSend={handleSend} />
+        <EmptyState />
       )}
 
       {/* Input */}

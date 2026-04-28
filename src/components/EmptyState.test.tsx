@@ -1,54 +1,77 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { LATEST_TX, SPONSORS, TOOL_CELLS } from '../lib/landing-content';
+
+const setVisible = vi.fn();
+const solflareConnect = vi.fn();
 
 vi.mock('@solana/wallet-adapter-react', () => ({
-  useWallet: () => ({ connected: false, connecting: false, wallets: [] }),
+  useWallet: () => ({
+    connected: false,
+    connecting: false,
+    wallets: [
+      {
+        adapter: {
+          name: 'Solflare',
+          connect: solflareConnect,
+        },
+      },
+    ],
+  }),
 }));
 
 vi.mock('@solana/wallet-adapter-react-ui', () => ({
-  useWalletModal: () => ({ setVisible: vi.fn() }),
+  useWalletModal: () => ({ setVisible }),
 }));
 
 import EmptyState from './EmptyState';
 
-describe('EmptyState feature cards', () => {
+describe('EmptyState bento landing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders all 4 feature card titles', () => {
-    render(<EmptyState onSend={vi.fn()} />);
-    expect(screen.getByText('Live Yields')).toBeInTheDocument();
-    expect(screen.getByText('Build & Sign')).toBeInTheDocument();
-    expect(screen.getByText('Portfolio')).toBeInTheDocument();
-    expect(screen.getByText('Health Sim')).toBeInTheDocument();
+  it('renders the hero headline', () => {
+    render(<EmptyState />);
+    expect(screen.getByText('Type. Sign.')).toBeInTheDocument();
+    expect(screen.getByText(/^Done/)).toBeInTheDocument();
   });
 
-  it('fires the Live Yields query on click', () => {
-    const onSend = vi.fn();
-    render(<EmptyState onSend={onSend} />);
-    fireEvent.click(screen.getByText('Live Yields').closest('button')!);
-    expect(onSend).toHaveBeenCalledWith('What are the best Kamino yields right now?');
+  it('renders all 4 tool cells by name', () => {
+    render(<EmptyState />);
+    TOOL_CELLS.forEach((t) => {
+      expect(screen.getByText(t.name)).toBeInTheDocument();
+    });
   });
 
-  it('fires the Build & Sign query on click', () => {
-    const onSend = vi.fn();
-    render(<EmptyState onSend={onSend} />);
-    fireEvent.click(screen.getByText('Build & Sign').closest('button')!);
-    expect(onSend).toHaveBeenCalledWith('Show me a 5 USDC deposit example');
+  it('renders the latest tx truncated signature', () => {
+    render(<EmptyState />);
+    expect(screen.getByText(LATEST_TX.shortSignature)).toBeInTheDocument();
   });
 
-  it('fires the Portfolio query on click', () => {
-    const onSend = vi.fn();
-    render(<EmptyState onSend={onSend} />);
-    fireEvent.click(screen.getByText('Portfolio').closest('button')!);
-    expect(onSend).toHaveBeenCalledWith('Show me my Kamino portfolio');
+  it('renders all 5 sponsor wordmarks', () => {
+    render(<EmptyState />);
+    SPONSORS.forEach((s) => {
+      expect(screen.getByText(s)).toBeInTheDocument();
+    });
   });
 
-  it('fires the Health Sim query on click', () => {
-    const onSend = vi.fn();
-    render(<EmptyState onSend={onSend} />);
-    fireEvent.click(screen.getByText('Health Sim').closest('button')!);
-    expect(onSend).toHaveBeenCalledWith('Will my borrow position liquidate at SOL $50?');
+  it('renders the 3 pipeline step labels', () => {
+    render(<EmptyState />);
+    expect(screen.getByText('INTENT')).toBeInTheDocument();
+    expect(screen.getByText('SIGNATURE')).toBeInTheDocument();
+    expect(screen.getByText('EXECUTION')).toBeInTheDocument();
+  });
+
+  it('clicking the CTA calls solflare.adapter.connect()', () => {
+    render(<EmptyState />);
+    fireEvent.click(screen.getByRole('button', { name: /connect with solflare/i }));
+    expect(solflareConnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking "Use another Solana wallet" opens the wallet modal', () => {
+    render(<EmptyState />);
+    fireEvent.click(screen.getByRole('button', { name: /use another solana wallet/i }));
+    expect(setVisible).toHaveBeenCalledWith(true);
   });
 });
