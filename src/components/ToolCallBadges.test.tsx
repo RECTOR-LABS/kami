@@ -38,4 +38,75 @@ describe('ToolCallBadges', () => {
     expect(screen.queryByText('Fetching Kamino portfolio')).not.toBeInTheDocument();
     expect(screen.queryByText(/failed/i)).not.toBeInTheDocument();
   });
+
+  it('merges two consecutive same-name + same-status calls into one pill with ×2 suffix', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', status: 'done' }),
+          baseCall({ id: 'tc-2', status: 'done' }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Fetching Kamino portfolio ×2')).toBeInTheDocument();
+    // single rendered pill — verify only one matches
+    expect(screen.getAllByText(/Fetching Kamino portfolio/)).toHaveLength(1);
+  });
+
+  it('does NOT merge consecutive same-name calls with different statuses', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', status: 'calling' }),
+          baseCall({ id: 'tc-2', status: 'done' }),
+        ]}
+      />,
+    );
+    // both pills present, neither has ×N suffix
+    expect(screen.getAllByText('Fetching Kamino portfolio')).toHaveLength(2);
+    expect(screen.queryByText(/Fetching Kamino portfolio ×/)).not.toBeInTheDocument();
+  });
+
+  it('does NOT merge non-consecutive same-name+status calls (A, B, A renders as 3 pills)', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', name: 'getPortfolio', status: 'done' }),
+          baseCall({ id: 'tc-2', name: 'findYield', status: 'done' }),
+          baseCall({ id: 'tc-3', name: 'getPortfolio', status: 'done' }),
+        ]}
+      />,
+    );
+    expect(screen.getAllByText('Fetching Kamino portfolio')).toHaveLength(2);
+    expect(screen.getByText('Scanning yield opportunities')).toBeInTheDocument();
+    expect(screen.queryByText(/Fetching Kamino portfolio ×/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Scanning yield opportunities ×/)).not.toBeInTheDocument();
+  });
+
+  it('renders ×N suffix for three consecutive same-name+status calls', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', status: 'done' }),
+          baseCall({ id: 'tc-2', status: 'done' }),
+          baseCall({ id: 'tc-3', status: 'done' }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Fetching Kamino portfolio ×3')).toBeInTheDocument();
+    expect(screen.getAllByText(/Fetching Kamino portfolio/)).toHaveLength(1);
+  });
+
+  it('merges consecutive same-name wallet-required calls with ×2 suffix', () => {
+    render(
+      <ToolCallBadges
+        calls={[
+          baseCall({ id: 'tc-1', status: 'wallet-required' }),
+          baseCall({ id: 'tc-2', status: 'wallet-required' }),
+        ]}
+      />,
+    );
+    expect(screen.getByText('Wallet required ×2')).toBeInTheDocument();
+    expect(screen.getAllByText(/Wallet required/)).toHaveLength(1);
+  });
 });
