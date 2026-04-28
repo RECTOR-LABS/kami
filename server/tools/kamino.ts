@@ -65,6 +65,18 @@ const MARKET_CACHE_TTL_MS = 30_000;
 let cachedMarket: KaminoMarket | null = null;
 let marketLoadedAt = 0;
 
+const pdaCache = new Map<string, Promise<Address>>();
+
+export function getVanillaPda(market: Address, wallet: Address): Promise<Address> {
+  const key = `${market}:${wallet}`;
+  let promise = pdaCache.get(key);
+  if (!promise) {
+    promise = new VanillaObligation(PROGRAM_ID).toPda(market, wallet);
+    pdaCache.set(key, promise);
+  }
+  return promise;
+}
+
 async function getMarket(): Promise<KaminoMarket> {
   const now = Date.now();
   if (cachedMarket && now - marketLoadedAt < MARKET_CACHE_TTL_MS) {
@@ -147,7 +159,7 @@ async function fetchVanillaObligation(
   market: KaminoMarket,
   wallet: Address
 ): Promise<KaminoObligation | null> {
-  const vanillaPda = await new VanillaObligation(PROGRAM_ID).toPda(market.getAddress(), wallet);
+  const vanillaPda = await getVanillaPda(market.getAddress(), wallet);
   return market.getObligationByAddress(vanillaPda);
 }
 
@@ -767,3 +779,14 @@ export const TOOLS = {
   buildWithdraw,
   buildRepay,
 } as const;
+
+/** For tests only — clears module-scope caches so unit tests start clean.
+ *  Throws when invoked outside `NODE_ENV === 'test'` (matches D-21 pattern). */
+export function _resetCachesForTesting(): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('_resetCachesForTesting may only be called when NODE_ENV === "test"');
+  }
+  cachedMarket = null;
+  marketLoadedAt = 0;
+  pdaCache.clear();
+}

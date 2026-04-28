@@ -1,8 +1,30 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import BN from 'bn.js';
-import { computeStaleness } from './kamino';
+import { address } from '@solana/kit';
+
+const klendMocks = vi.hoisted(() => ({
+  toPda: vi.fn(),
+  KaminoMarket: { load: vi.fn() },
+  PROGRAM_ID: 'KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD' as const,
+  DEFAULT_RECENT_SLOT_DURATION_MS: 450 as const,
+}));
+
+vi.mock('@kamino-finance/klend-sdk', () => ({
+  KaminoMarket: klendMocks.KaminoMarket,
+  VanillaObligation: vi.fn().mockImplementation(function () {
+    return { toPda: klendMocks.toPda };
+  }),
+  PROGRAM_ID: klendMocks.PROGRAM_ID,
+  DEFAULT_RECENT_SLOT_DURATION_MS: klendMocks.DEFAULT_RECENT_SLOT_DURATION_MS,
+}));
+
+import { computeStaleness, _resetCachesForTesting, getVanillaPda } from './kamino';
 import type { KaminoReserve } from '@kamino-finance/klend-sdk';
+
+// ---------------------------------------------------------------------------
+// computeStaleness — pure unit tests (no klend-sdk runtime needed)
+// ---------------------------------------------------------------------------
 
 const BASELINE_SLOT = 1000n;
 
@@ -43,5 +65,45 @@ describe('computeStaleness', () => {
       priceStale: false,
       slotsSinceRefresh: 0,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getVanillaPda memoization
+// ---------------------------------------------------------------------------
+
+const MARKET = address('7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF');
+const WALLET_A = address('FGSkt8MwXH83daNNW8ZkoqhL1KLcLoZLcdGJz84BWWr');
+const WALLET_B = address('11111111111111111111111111111111');
+
+describe('getVanillaPda memoization', () => {
+  beforeEach(() => {
+    _resetCachesForTesting();
+    klendMocks.toPda.mockReset();
+    klendMocks.toPda.mockImplementation(async (m: string, w: string) =>
+      // Return a deterministic fake PDA string (not validated as base58 — type cast is safe here
+      // because Address is a branded string and we only check referential equality in these tests)
+      `${m.slice(0, 4)}-${w.slice(0, 4)}-pda1234567890123456789012345678901` as ReturnType<typeof address>,
+    );
+  });
+
+  it('memoizes PDA computation per (market, wallet) pair', async () => {
+    const pda1 = await getVanillaPda(MARKET, WALLET_A);
+    const pda2 = await getVanillaPda(MARKET, WALLET_A);
+    const pda3 = await getVanillaPda(MARKET, WALLET_A);
+
+    expect(pda1).toBe(pda2);
+    expect(pda1).toBe(pda3);
+    expect(klendMocks.toPda).toHaveBeenCalledTimes(1);
+  });
+
+  it('computes a separate PDA for a different wallet', async () => {
+    await getVanillaPda(MARKET, WALLET_A);
+    await getVanillaPda(MARKET, WALLET_B);
+    await getVanillaPda(MARKET, WALLET_A); // re-fetch — should hit cache
+
+    expect(klendMocks.toPda).toHaveBeenCalledTimes(2);
+    expect(klendMocks.toPda).toHaveBeenNthCalledWith(1, MARKET, WALLET_A);
+    expect(klendMocks.toPda).toHaveBeenNthCalledWith(2, MARKET, WALLET_B);
   });
 });
