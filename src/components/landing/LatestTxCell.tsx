@@ -12,6 +12,7 @@ export default function LatestTxCell({ delay }: Props) {
       delay={delay}
       className="col-span-12 md:col-span-6 lg:col-span-4 bg-kami-cellElevated"
     >
+      {/* bg-kami-cellElevated overrides BentoCell's default bg-kami-cellBase via Tailwind class-emit order. */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-kami-creamMuted">
           <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
@@ -31,7 +32,7 @@ export default function LatestTxCell({ delay }: Props) {
             href={LATEST_TX.solscanUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="View on Solscan"
+            aria-label={`View Solscan transaction ${LATEST_TX.shortSignature}`}
             className="font-mono text-sm text-kami-cream hover:text-kami-amber transition-colors inline-flex items-center gap-1"
           >
             {LATEST_TX.shortSignature}

@@ -22,7 +22,7 @@ describe('LatestTxCell', () => {
 
   it('Solscan link points to the full signature with safe target/rel', () => {
     render(<LatestTxCell delay={3} />);
-    const link = screen.getByRole('link', { name: /view on solscan/i });
+    const link = screen.getByRole('link', { name: /view solscan transaction/i });
     expect(link).toHaveAttribute('href', LATEST_TX.solscanUrl);
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
