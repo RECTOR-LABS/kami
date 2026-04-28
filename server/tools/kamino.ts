@@ -64,6 +64,7 @@ export interface PortfolioSnapshot {
 const MARKET_CACHE_TTL_MS = 30_000;
 let cachedMarket: KaminoMarket | null = null;
 let marketLoadedAt = 0;
+let loadingPromise: Promise<KaminoMarket> | null = null;
 
 const pdaCache = new Map<string, Promise<Address>>();
 
@@ -85,19 +86,27 @@ export function getVanillaPda(market: Address, wallet: Address): Promise<Address
   return promise;
 }
 
-async function getMarket(): Promise<KaminoMarket> {
+export async function getMarket(): Promise<KaminoMarket> {
   const now = Date.now();
   if (cachedMarket && now - marketLoadedAt < MARKET_CACHE_TTL_MS) {
     return cachedMarket;
   }
-  const rpc = getRpc();
-  const market = await KaminoMarket.load(rpc, KAMINO_MAIN_MARKET, DEFAULT_RECENT_SLOT_DURATION_MS);
-  if (!market) {
-    throw new Error(`Failed to load Kamino main market ${KAMINO_MAIN_MARKET}`);
-  }
-  cachedMarket = market;
-  marketLoadedAt = now;
-  return market;
+  if (loadingPromise) return loadingPromise;
+  loadingPromise = (async () => {
+    try {
+      const rpc = getRpc();
+      const market = await KaminoMarket.load(rpc, KAMINO_MAIN_MARKET, DEFAULT_RECENT_SLOT_DURATION_MS);
+      if (!market) {
+        throw new Error(`Failed to load Kamino main market ${KAMINO_MAIN_MARKET}`);
+      }
+      cachedMarket = market;
+      marketLoadedAt = Date.now();
+      return market;
+    } finally {
+      loadingPromise = null;
+    }
+  })();
+  return loadingPromise;
 }
 
 /**
@@ -796,5 +805,6 @@ export function _resetCachesForTesting(): void {
   }
   cachedMarket = null;
   marketLoadedAt = 0;
+  loadingPromise = null;
   pdaCache.clear();
 }

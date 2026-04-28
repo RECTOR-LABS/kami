@@ -19,7 +19,7 @@ vi.mock('@kamino-finance/klend-sdk', () => ({
   DEFAULT_RECENT_SLOT_DURATION_MS: klendMocks.DEFAULT_RECENT_SLOT_DURATION_MS,
 }));
 
-import { computeStaleness, _resetCachesForTesting, getVanillaPda } from './kamino';
+import { computeStaleness, _resetCachesForTesting, getVanillaPda, getMarket } from './kamino';
 import type { KaminoReserve } from '@kamino-finance/klend-sdk';
 
 // ---------------------------------------------------------------------------
@@ -120,5 +120,60 @@ describe('getVanillaPda memoization', () => {
     const retryPda = await getVanillaPda(MARKET, WALLET_A);
     expect(retryPda).toBe('retry-success-pda');
     expect(klendMocks.toPda).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getMarket in-flight guard
+// ---------------------------------------------------------------------------
+
+import type { KaminoMarket } from '@kamino-finance/klend-sdk';
+
+describe('getMarket in-flight guard', () => {
+  beforeEach(() => {
+    _resetCachesForTesting();
+    klendMocks.KaminoMarket.load.mockReset();
+  });
+
+  it('triggers a single load when called concurrently from a cold cache', async () => {
+    const fakeMarket = { getAddress: () => 'market-pda' } as unknown as KaminoMarket;
+    let resolveLoad: ((m: unknown) => void) | undefined;
+    klendMocks.KaminoMarket.load.mockImplementation(
+      () => new Promise((resolve) => { resolveLoad = resolve; }),
+    );
+
+    const calls = Promise.all([getMarket(), getMarket(), getMarket(), getMarket(), getMarket()]);
+    // Allow the microtask queue to drain so each caller registers on loadingPromise
+    await new Promise((r) => setTimeout(r, 0));
+    resolveLoad!(fakeMarket);
+    const results = await calls;
+
+    for (const m of results) {
+      expect(m).toBe(fakeMarket);
+    }
+    expect(klendMocks.KaminoMarket.load).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns cached market within TTL without calling load() again', async () => {
+    const fakeMarket = { getAddress: () => 'market-pda' } as unknown as KaminoMarket;
+    klendMocks.KaminoMarket.load.mockResolvedValue(fakeMarket);
+
+    await getMarket();
+    await getMarket();
+    await getMarket();
+
+    expect(klendMocks.KaminoMarket.load).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the in-flight promise on rejection so the next call can retry', async () => {
+    klendMocks.KaminoMarket.load
+      .mockRejectedValueOnce(new Error('rpc went sideways'))
+      .mockResolvedValueOnce({ getAddress: () => 'market-pda' } as unknown as KaminoMarket);
+
+    await expect(getMarket()).rejects.toThrow('rpc went sideways');
+
+    const market = await getMarket();
+    expect(market).toBeDefined();
+    expect(klendMocks.KaminoMarket.load).toHaveBeenCalledTimes(2);
   });
 });
