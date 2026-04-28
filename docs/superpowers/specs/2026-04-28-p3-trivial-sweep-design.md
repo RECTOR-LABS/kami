@@ -8,7 +8,7 @@
 - [#28 — D-25 Integration test: empty `identify()` → 429 wire-up](https://github.com/RECTOR-LABS/kami/issues/28)
 
 **Priority:** P3 (`qa-2026-04-26`)
-**Sprint:** 4.1 (Chunk 4 — priority-based clusters)
+**Sprint:** 4.1 (priority-based cluster — P3 first of three)
 **Estimate:** ~3h walltime; each commit < 1h
 **Branch:** `chore/p3-trivial-sweep`
 
@@ -33,7 +33,7 @@ Four small footguns and undocumented quirks survived earlier sprints because eac
 - **D-21 (commit 1):** Add a runtime guard inside `_resetForTesting`. Throw with a specific error message when `process.env.NODE_ENV !== 'test'`. Add one test in `server/ratelimit.test.ts` asserting the throw.
 - **D-23 (commit 2):** Two `// NOTE:` comments in `src/lib/markdown-renderer.tsx` — one above the `pre` override (lines 105-111), one above the `code` text-extraction (lines 78-83). Pure comments; zero behavior change.
 - **D-24 (commit 3):** JSDoc block above `toNumber` in `server/tools/kamino.ts` warning about precision loss above 2^53, the `±Infinity → 0` overflow guard, and the display-only constraint. Pure docs; zero behavior change.
-- **D-25 (commit 4):** One new test in `api/chat.test.ts` asserting that `identify() → ''` produces a 429 with `X-RateLimit-Limit: 0`, `X-RateLimit-Remaining: 0`, `Retry-After`, and the right body shape. Mock-mirroring style consistent with the existing 14 handler tests.
+- **D-25 (commit 4):** One new test in `api/chat.test.ts` asserting that `identify() → ''` produces a 429 with `X-RateLimit-Limit: 0`, `X-RateLimit-Remaining: 0`, `Retry-After`, and the right body shape. Mock-mirroring style consistent with the existing 17 handler tests.
 
 **Out of scope** (explicitly deferred):
 
@@ -76,9 +76,9 @@ server/ratelimit.test.ts
 
 2. **D-23 = bundle both NOTEs in one commit.** The two quirks share theme and file, and the C-3-finish review explicitly tied the second NOTE to D-23. Splitting into two commits would yield two ≈3-line diffs in the same file, hours apart — false granularity.
 
-3. **D-24 = JSDoc block, not @-deprecated.** Display-only is a contract, not a deprecation. The right tool is documentation. Future callers see the warning at IDE-hover time without any compile-time noise on existing call sites.
+3. **D-24 = JSDoc block, not `@deprecated`.** Display-only is a contract, not a deprecation. The right tool is documentation. Future callers see the warning at IDE-hover time without any compile-time noise on existing call sites.
 
-4. **D-25 = mock-mirroring at the handler altitude.** Brainstorm option A. Style-consistent with the 14 existing handler tests in `api/chat.test.ts`. The test's mocks mirror the contract `applyLimit('')` already enforces in `server/ratelimit.ts:74-76` (already covered by `server/ratelimit.test.ts:97-127`); this test asserts the handler reads `ok: false, limit: 0` correctly and emits the right wire response.
+4. **D-25 = mock-mirroring at the handler altitude.** Brainstorm option A. Style-consistent with the 17 existing handler tests in `api/chat.test.ts`. The test's mocks mirror the contract `applyLimit('')` already enforces in `server/ratelimit.ts:74-76` (already covered by `server/ratelimit.test.ts:97-127`); this test asserts the handler reads `ok: false, limit: 0` correctly and emits the right wire response.
 
 5. **One commit per logical change, four commits total.** Per project rule. Any in-flight code-review fixes during execution ship as additional fix commits in the same PR (the C-2 pattern from Sprint 3.1, not the post-merge pattern).
 
