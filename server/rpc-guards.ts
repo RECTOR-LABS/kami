@@ -30,6 +30,13 @@ export function deniedMethodIn(payload: unknown): string | null {
   return null;
 }
 
+// NOTE: This guard inspects only DIRECT array children of `params`. RPC methods
+// that wrap long arrays inside config objects (e.g.,
+// `params: [{ accounts: [...100 items...] }]`) would slip through. Today's
+// DENIED_METHODS set covers the high-cardinality methods (getProgramAccounts,
+// getSignaturesForAddress, etc.); if a new high-cardinality method ships with
+// nested array params, audit this function for recursive descent before
+// relying on it.
 export function oversizedParamsIn(payload: unknown): string | null {
   if (Array.isArray(payload) && payload.length > MAX_BATCH_SIZE) {
     return `batch of ${payload.length} calls exceeds limit of ${MAX_BATCH_SIZE}`;

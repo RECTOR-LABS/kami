@@ -3,8 +3,10 @@ import { Readable } from 'node:stream';
 import { z } from 'zod';
 import { createChatStream } from '../server/chat.js';
 import { applyLimit, identify, type LimitResult } from '../server/ratelimit.js';
+import { createLogger } from '../server/log.js';
 
 const CHAT_RATE_LIMIT = { name: 'chat', limit: 30, window: '1 m' as const };
+const logger = createLogger();
 
 export const config = {
   maxDuration: 60,
@@ -120,7 +122,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   req.on('close', () => {
     if (!res.writableEnded) {
       controller.abort();
-      console.log('chat:aborted', { wallet: walletAddress ?? null });
+      logger.info({ wallet: walletAddress ?? null }, 'chat:aborted');
     }
   });
 

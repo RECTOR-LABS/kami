@@ -64,20 +64,49 @@ export interface PortfolioSnapshot {
 const MARKET_CACHE_TTL_MS = 30_000;
 let cachedMarket: KaminoMarket | null = null;
 let marketLoadedAt = 0;
+let loadingPromise: Promise<KaminoMarket> | null = null;
 
-async function getMarket(): Promise<KaminoMarket> {
+const pdaCache = new Map<string, Promise<Address>>();
+
+export function getVanillaPda(market: Address, wallet: Address): Promise<Address> {
+  const key = `${market}:${wallet}`;
+  let promise = pdaCache.get(key);
+  if (!promise) {
+    // Catch-and-evict: a rejected promise must NOT poison the cache for the
+    // session. PDA derivation is deterministic on valid inputs so this branch
+    // is near-zero in practice, but the eviction prevents permanent dead-key
+    // failure if the SDK or program ID ever changes shape.
+    promise = new VanillaObligation(PROGRAM_ID).toPda(market, wallet)
+      .catch((err) => {
+        pdaCache.delete(key);
+        return Promise.reject(err);
+      });
+    pdaCache.set(key, promise);
+  }
+  return promise;
+}
+
+export async function getMarket(): Promise<KaminoMarket> {
   const now = Date.now();
   if (cachedMarket && now - marketLoadedAt < MARKET_CACHE_TTL_MS) {
     return cachedMarket;
   }
-  const rpc = getRpc();
-  const market = await KaminoMarket.load(rpc, KAMINO_MAIN_MARKET, DEFAULT_RECENT_SLOT_DURATION_MS);
-  if (!market) {
-    throw new Error(`Failed to load Kamino main market ${KAMINO_MAIN_MARKET}`);
-  }
-  cachedMarket = market;
-  marketLoadedAt = now;
-  return market;
+  if (loadingPromise) return loadingPromise;
+  loadingPromise = (async () => {
+    try {
+      const rpc = getRpc();
+      const market = await KaminoMarket.load(rpc, KAMINO_MAIN_MARKET, DEFAULT_RECENT_SLOT_DURATION_MS);
+      if (!market) {
+        throw new Error(`Failed to load Kamino main market ${KAMINO_MAIN_MARKET}`);
+      }
+      cachedMarket = market;
+      marketLoadedAt = Date.now();
+      return market;
+    } finally {
+      loadingPromise = null;
+    }
+  })();
+  return loadingPromise;
 }
 
 /**
@@ -147,7 +176,7 @@ async function fetchVanillaObligation(
   market: KaminoMarket,
   wallet: Address
 ): Promise<KaminoObligation | null> {
-  const vanillaPda = await new VanillaObligation(PROGRAM_ID).toPda(market.getAddress(), wallet);
+  const vanillaPda = await getVanillaPda(market.getAddress(), wallet);
   return market.getObligationByAddress(vanillaPda);
 }
 
@@ -665,6 +694,15 @@ async function buildPendingTransaction(
     kaminoAction = await compileKaminoAction(action, mint, amountStr, ownerSigner, market, currentSlot);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    // Server-side triage: keep the raw error and request context. The
+    // user-facing message stays scrubbed below.
+    console.error('[Kami] KaminoAction build failed', {
+      action,
+      symbol: input.symbol,
+      amount: input.amount,
+      wallet,
+      err,
+    });
     return { ok: false, error: `Failed to build ${action} transaction: ${message}` };
   }
 
@@ -758,3 +796,15 @@ export const TOOLS = {
   buildWithdraw,
   buildRepay,
 } as const;
+
+/** For tests only — clears module-scope caches so unit tests start clean.
+ *  Throws when invoked outside `NODE_ENV === 'test'` (matches D-21 pattern). */
+export function _resetCachesForTesting(): void {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('_resetCachesForTesting may only be called when NODE_ENV === "test"');
+  }
+  cachedMarket = null;
+  marketLoadedAt = 0;
+  loadingPromise = null;
+  pdaCache.clear();
+}

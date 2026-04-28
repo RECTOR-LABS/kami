@@ -34,8 +34,12 @@ async function pollSignatureStatus(
       if (currentHeight > lastValidBlockHeight) {
         return { status: 'failed', reason: 'Blockhash expired before confirmation.' };
       }
-    } catch {
-      // transient RPC hiccup — keep polling
+    } catch (err) {
+      // Visibility for unexpected RPC errors. Silent swallowing hides programmer
+      // bugs (TypeErrors, unbound calls) behind a "transient" lie. Polling
+      // continues regardless — POLL_INTERVAL_MS bounds log volume.
+      // eslint-disable-next-line no-console
+      console.warn('[Kami] pollSignatureStatus retry', err);
     }
   }
   return { status: 'failed', reason: 'Timed out waiting for confirmation.' };
