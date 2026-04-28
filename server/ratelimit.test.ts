@@ -168,3 +168,15 @@ describe('applyLimit with mocked Upstash', () => {
     expect(r!.remaining).toBe(0);
   });
 });
+
+describe('_resetForTesting env guard', () => {
+  it('throws when invoked outside NODE_ENV === "test"', () => {
+    const orig = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = 'production';
+      expect(() => _resetForTesting()).toThrow(/NODE_ENV === "test"/);
+    } finally {
+      process.env.NODE_ENV = orig;
+    }
+  });
+});
