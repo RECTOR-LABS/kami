@@ -32,6 +32,7 @@ describe('getRpc URL-aware singleton', () => {
     const first = getRpc();
     const second = getRpc();
     expect(first).toBe(second);
+    expect(kitMocks.createSolanaRpc).toHaveBeenCalledTimes(1);
   });
 
   it('recreates the RPC when SOLANA_RPC_URL changes between calls', () => {
