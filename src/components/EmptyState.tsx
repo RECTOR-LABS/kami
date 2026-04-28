@@ -18,7 +18,11 @@ function SolflareLogo({ className }: { className?: string }) {
   );
 }
 
-export default function EmptyState() {
+interface Props {
+  onSend: (msg: string) => void;
+}
+
+export default function EmptyState({ onSend }: Props) {
   const { connected, connecting, wallets } = useWallet();
   const { setVisible } = useWalletModal();
 
@@ -50,20 +54,42 @@ export default function EmptyState() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left mb-6">
           {(
             [
-              { Icon: TrendingUp, title: 'Live Yields', desc: 'Find best APYs on Kamino' },
-              { Icon: ArrowLeftRight, title: 'Build & Sign', desc: 'Deposit, borrow, withdraw, repay' },
-              { Icon: Wallet, title: 'Portfolio', desc: 'Your Kamino positions + APY' },
-              { Icon: ShieldCheck, title: 'Health Sim', desc: 'Liquidation-risk checks' },
-            ] satisfies Array<{ Icon: LucideIcon; title: string; desc: string }>
-          ).map(({ Icon, title, desc }) => (
-            <div
+              {
+                Icon: TrendingUp,
+                title: 'Live Yields',
+                desc: 'Find best APYs on Kamino',
+                query: 'What are the best Kamino yields right now?',
+              },
+              {
+                Icon: ArrowLeftRight,
+                title: 'Build & Sign',
+                desc: 'Deposit, borrow, withdraw, repay',
+                query: 'Show me a 5 USDC deposit example',
+              },
+              {
+                Icon: Wallet,
+                title: 'Portfolio',
+                desc: 'Your Kamino positions + APY',
+                query: 'Show me my Kamino portfolio',
+              },
+              {
+                Icon: ShieldCheck,
+                title: 'Health Sim',
+                desc: 'Liquidation-risk checks',
+                query: 'Will my borrow position liquidate at SOL $50?',
+              },
+            ] satisfies Array<{ Icon: LucideIcon; title: string; desc: string; query: string }>
+          ).map(({ Icon, title, desc, query }) => (
+            <button
               key={title}
-              className="p-3 rounded-xl border border-kami-border bg-kami-surface/50 hover:bg-kami-surface transition-colors"
+              type="button"
+              onClick={() => onSend(query)}
+              className="text-left p-3 rounded-xl border border-kami-border bg-kami-surface/50 hover:bg-kami-surface transition-colors cursor-pointer"
             >
               <Icon className="w-5 h-5 text-kami-accent mb-2" aria-hidden="true" />
               <div className="text-sm font-medium text-white">{title}</div>
               <div className="text-xs text-kami-muted">{desc}</div>
-            </div>
+            </button>
           ))}
         </div>
 
