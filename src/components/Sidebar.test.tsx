@@ -105,4 +105,22 @@ describe('Sidebar rename', () => {
     expect(onRename).not.toHaveBeenCalled();
     expect(screen.queryByRole('textbox', { name: /rename conversation/i })).not.toBeInTheDocument();
   });
+
+  it('hides the row action buttons while the row is being edited', () => {
+    render(<Sidebar {...noopProps} />);
+
+    // Two pencil buttons initially (one per conv); none should remain in DOM after entering edit mode for c1
+    expect(screen.getAllByRole('button', { name: /rename conversation/i }).length).toBe(2);
+    expect(screen.getAllByRole('button', { name: /delete conversation/i }).length).toBe(2);
+
+    const pencilButtons = screen.getAllByRole('button', { name: /rename conversation/i });
+    fireEvent.click(pencilButtons[0]);
+
+    // c1 row is now in edit mode; only c2's pencil/trash should remain (one each)
+    expect(screen.getAllByRole('button', { name: /rename conversation/i }).length).toBe(1);
+    expect(screen.getAllByRole('button', { name: /delete conversation/i }).length).toBe(1);
+
+    // The textbox is the only role-named "rename conversation" element on the c1 row
+    expect(screen.getByRole('textbox', { name: /rename conversation/i })).toBeInTheDocument();
+  });
 });
