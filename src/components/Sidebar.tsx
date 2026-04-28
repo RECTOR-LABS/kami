@@ -10,6 +10,7 @@ interface Props {
   onDelete: (id: string) => void;
   onClose: () => void;
   onClearAll: () => void;
+  onRename: (id: string, title: string) => void;
 }
 
 export default function Sidebar({
@@ -21,14 +22,35 @@ export default function Sidebar({
   onDelete,
   onClose,
   onClearAll,
+  onRename,
 }: Props) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
 
   const handleClearAll = () => {
     setIsSettingsOpen(false);
     if (window.confirm('Clear all conversations? This cannot be undone.')) {
       onClearAll();
     }
+  };
+
+  const startRename = (conv: Conversation) => {
+    setEditingId(conv.id);
+    setEditingTitle(conv.title);
+  };
+
+  const commitRename = () => {
+    if (!editingId) return;
+    const trimmed = editingTitle.trim();
+    if (trimmed) onRename(editingId, trimmed);
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditingTitle('');
   };
 
   return (
@@ -128,12 +150,52 @@ export default function Sidebar({
                   d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                 />
               </svg>
-              <span className="flex-1 truncate">{conv.title}</span>
+              {editingId === conv.id ? (
+                <input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitRename();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      cancelRename();
+                    }
+                  }}
+                  onBlur={commitRename}
+                  onClick={(e) => e.stopPropagation()}
+                  maxLength={60}
+                  aria-label="Rename conversation"
+                  className="flex-1 min-w-0 bg-transparent border border-kami-border rounded px-1 py-0.5 text-sm text-white focus:outline-none focus:border-kami-accent"
+                />
+              ) : (
+                <span className="flex-1 truncate">{conv.title}</span>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startRename(conv);
+                }}
+                aria-label="Rename conversation"
+                className="opacity-0 group-hover:opacity-100 p-1 text-kami-muted hover:text-white transition-all"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete(conv.id);
                 }}
+                aria-label="Delete conversation"
                 className="opacity-0 group-hover:opacity-100 p-1 text-kami-muted hover:text-kami-danger transition-all"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

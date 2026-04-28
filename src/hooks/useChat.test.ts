@@ -247,3 +247,47 @@ describe('useChat clearAllConversations', () => {
     expect(capturedSignal?.aborted).toBe(true);
   });
 });
+
+describe('useChat renameConversation', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('updates the title for the matching conversation id', () => {
+    const conv1 = { id: 'c1', title: 'old title', messages: [], createdAt: 1, updatedAt: 1 };
+    const conv2 = { id: 'c2', title: 'untouched', messages: [], createdAt: 2, updatedAt: 2 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1, conv2]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.renameConversation('c1', 'fresh title');
+    });
+
+    const c1 = result.current.conversations.find((c) => c.id === 'c1');
+    const c2 = result.current.conversations.find((c) => c.id === 'c2');
+    expect(c1?.title).toBe('fresh title');
+    expect(c2?.title).toBe('untouched');
+  });
+
+  it('rejects empty or whitespace-only titles as a silent no-op', () => {
+    const conv1 = { id: 'c1', title: 'keep this', messages: [], createdAt: 1, updatedAt: 1 };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv1]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.renameConversation('c1', '   ');
+    });
+
+    expect(result.current.conversations[0].title).toBe('keep this');
+
+    act(() => {
+      result.current.renameConversation('c1', '');
+    });
+
+    expect(result.current.conversations[0].title).toBe('keep this');
+  });
+});

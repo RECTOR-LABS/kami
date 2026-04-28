@@ -19,6 +19,7 @@ const noopProps = {
   onDelete: vi.fn(),
   onClose: vi.fn(),
   onClearAll: vi.fn(),
+  onRename: vi.fn(),
 };
 
 describe('Sidebar settings menu', () => {
@@ -54,5 +55,54 @@ describe('Sidebar settings menu', () => {
 
     expect(window.confirm).toHaveBeenCalledTimes(1);
     expect(onClearAll).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Sidebar rename', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('switches the row to an inline input when the pencil is clicked', () => {
+    render(<Sidebar {...noopProps} />);
+
+    expect(screen.queryByRole('textbox', { name: /rename conversation/i })).not.toBeInTheDocument();
+
+    const pencilButtons = screen.getAllByRole('button', { name: /rename conversation/i });
+    fireEvent.click(pencilButtons[0]);
+
+    const input = screen.getByRole('textbox', { name: /rename conversation/i });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('first chat');
+  });
+
+  it('calls onRename and commits when Enter is pressed', () => {
+    const onRename = vi.fn();
+    render(<Sidebar {...noopProps} onRename={onRename} />);
+
+    const pencilButtons = screen.getAllByRole('button', { name: /rename conversation/i });
+    fireEvent.click(pencilButtons[0]);
+
+    const input = screen.getByRole('textbox', { name: /rename conversation/i });
+    fireEvent.change(input, { target: { value: 'updated title' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onRename).toHaveBeenCalledWith('c1', 'updated title');
+    expect(screen.queryByRole('textbox', { name: /rename conversation/i })).not.toBeInTheDocument();
+  });
+
+  it('cancels without calling onRename when Escape is pressed', () => {
+    const onRename = vi.fn();
+    render(<Sidebar {...noopProps} onRename={onRename} />);
+
+    const pencilButtons = screen.getAllByRole('button', { name: /rename conversation/i });
+    fireEvent.click(pencilButtons[0]);
+
+    const input = screen.getByRole('textbox', { name: /rename conversation/i });
+    fireEvent.change(input, { target: { value: 'changed but cancelled' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.queryByRole('textbox', { name: /rename conversation/i })).not.toBeInTheDocument();
   });
 });

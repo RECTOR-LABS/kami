@@ -19,6 +19,7 @@ function AppContent() {
     switchConversation,
     deleteConversation,
     clearAllConversations,
+    renameConversation,
   } = useChat();
 
   return (
@@ -38,6 +39,7 @@ function AppContent() {
         onDelete={deleteConversation}
         onClose={() => setSidebarOpen(false)}
         onClearAll={clearAllConversations}
+        onRename={renameConversation}
       />
       {activeConversation && (
         <ChatPanel
