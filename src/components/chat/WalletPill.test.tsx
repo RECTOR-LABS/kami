@@ -31,7 +31,7 @@ describe('WalletPill', () => {
 
   it('renders truncated pubkey when connected', () => {
     render(<WalletPill />);
-    expect(screen.getByText(/HclZ.*45/)).toBeInTheDocument();
+    expect(screen.getByText('HclZ..2345')).toBeInTheDocument();
   });
 
   it('opens dropdown when pill is clicked', () => {

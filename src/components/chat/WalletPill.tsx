@@ -6,7 +6,7 @@ const SOLSCAN_BASE = 'https://solscan.io/account/';
 
 function truncatePubkey(pubkey: string): string {
   if (pubkey.length <= 8) return pubkey;
-  return `${pubkey.slice(0, 4)}..${pubkey.slice(-2)}`;
+  return `${pubkey.slice(0, 4)}..${pubkey.slice(-4)}`;
 }
 
 export default function WalletPill() {
@@ -61,6 +61,8 @@ export default function WalletPill() {
       <button
         type="button"
         aria-label="Wallet menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-kami-amber text-kami-sepiaBg hover:opacity-95 active:opacity-90 transition-opacity"
       >
