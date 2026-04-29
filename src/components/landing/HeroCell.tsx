@@ -1,6 +1,6 @@
 import { Code2, Wallet } from 'lucide-react';
-import BentoCell from './BentoCell';
-import KamiCursor from './KamiCursor';
+import BentoCell from '../bento/BentoCell';
+import KamiCursor from '../bento/KamiCursor';
 
 interface Props {
   connecting: boolean;

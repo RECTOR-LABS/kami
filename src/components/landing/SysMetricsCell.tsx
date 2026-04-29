@@ -1,5 +1,5 @@
 import { Cpu } from 'lucide-react';
-import BentoCell from './BentoCell';
+import BentoCell from '../bento/BentoCell';
 import { LANDING_STATS } from '../../lib/landing-content';
 
 interface Props {
