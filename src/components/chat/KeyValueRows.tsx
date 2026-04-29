@@ -17,6 +17,7 @@ const ACCENT_CLASS: Record<Accent, string> = {
 };
 
 export default function KeyValueRows({ rows }: Props) {
+  if (rows.length === 0) return null;
   return (
     <div className="bg-kami-cellElevated border border-kami-cellBorder rounded-2xl p-3">
       {rows.map((row, i) => (

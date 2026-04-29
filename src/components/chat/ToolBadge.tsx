@@ -1,4 +1,4 @@
-import { Loader2, CheckCircle, AlertCircle, Wallet } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Wallet, type LucideIcon } from 'lucide-react';
 import type { ToolCallRecord } from '../../types';
 
 type Status = ToolCallRecord['status'];
@@ -9,7 +9,7 @@ interface Props {
   count?: number;
 }
 
-const STATUS_ICONS: Record<Status, typeof Loader2> = {
+const STATUS_ICONS: Record<Status, LucideIcon> = {
   calling: Loader2,
   done: CheckCircle,
   error: AlertCircle,
@@ -26,7 +26,7 @@ const STATUS_ICON_CLASS: Record<Status, string> = {
 export default function ToolBadge({ name, status, count }: Props) {
   const Icon = STATUS_ICONS[status];
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-kami-amber/40 bg-kami-amber/8 text-kami-amber font-mono text-[11px]">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-kami-amber/40 bg-kami-amber/10 text-kami-amber font-mono text-[11px]">
       <Icon className={STATUS_ICON_CLASS[status]} aria-hidden="true" />
       <span>{name}</span>
       {count !== undefined && count > 1 && <span className="opacity-70">×{count}</span>}

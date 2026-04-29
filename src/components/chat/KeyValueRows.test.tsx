@@ -23,9 +23,8 @@ describe('KeyValueRows', () => {
     expect(screen.getByText('v').className).toMatch(/text-kami-amber/);
   });
 
-  it('renders empty state when rows is empty array', () => {
+  it('renders nothing when rows is empty array', () => {
     const { container } = render(<KeyValueRows rows={[]} />);
-    expect(container.firstChild).toBeTruthy();
-    expect(container.querySelectorAll('div[class*="font-mono"]').length).toBe(0);
+    expect(container.firstChild).toBeNull();
   });
 });
