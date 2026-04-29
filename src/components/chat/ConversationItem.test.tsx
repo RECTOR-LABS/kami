@@ -55,4 +55,81 @@ describe('ConversationItem', () => {
     expect(input).toBeInTheDocument();
     expect(input.value).toBe('USDC yield matrix');
   });
+
+  it('fires onStartRename when Pencil button is clicked', () => {
+    const onStartRename = vi.fn();
+    render(<ConversationItem {...baseProps} onStartRename={onStartRename} />);
+    fireEvent.click(screen.getByLabelText(/rename conversation/i));
+    expect(onStartRename).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT fire onSelect when Pencil button is clicked (stopPropagation)', () => {
+    const onSelect = vi.fn();
+    const onStartRename = vi.fn();
+    render(<ConversationItem {...baseProps} onSelect={onSelect} onStartRename={onStartRename} />);
+    fireEvent.click(screen.getByLabelText(/rename conversation/i));
+    expect(onStartRename).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('fires onDelete when Trash2 button is clicked', () => {
+    const onDelete = vi.fn();
+    render(<ConversationItem {...baseProps} onDelete={onDelete} />);
+    fireEvent.click(screen.getByLabelText(/delete conversation/i));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT fire onSelect when Trash2 button is clicked (stopPropagation)', () => {
+    const onSelect = vi.fn();
+    const onDelete = vi.fn();
+    render(<ConversationItem {...baseProps} onSelect={onSelect} onDelete={onDelete} />);
+    fireEvent.click(screen.getByLabelText(/delete conversation/i));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('fires onCommitRename when Enter is pressed in rename input', () => {
+    const onCommitRename = vi.fn();
+    render(
+      <ConversationItem
+        {...baseProps}
+        isEditing={true}
+        editingTitle="renamed"
+        onCommitRename={onCommitRename}
+      />
+    );
+    const input = screen.getByLabelText(/rename conversation/i);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommitRename).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires onCancelRename when Escape is pressed in rename input', () => {
+    const onCancelRename = vi.fn();
+    render(
+      <ConversationItem
+        {...baseProps}
+        isEditing={true}
+        editingTitle="renamed"
+        onCancelRename={onCancelRename}
+      />
+    );
+    const input = screen.getByLabelText(/rename conversation/i);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onCancelRename).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires onChangeRenameTitle when input value changes', () => {
+    const onChangeRenameTitle = vi.fn();
+    render(
+      <ConversationItem
+        {...baseProps}
+        isEditing={true}
+        editingTitle=""
+        onChangeRenameTitle={onChangeRenameTitle}
+      />
+    );
+    const input = screen.getByLabelText(/rename conversation/i);
+    fireEvent.change(input, { target: { value: 'new title' } });
+    expect(onChangeRenameTitle).toHaveBeenCalledWith('new title');
+  });
 });

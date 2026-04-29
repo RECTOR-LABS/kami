@@ -57,4 +57,45 @@ describe('MessageBubble', () => {
     const { container } = render(<MessageBubble message={assistantMsg} isStreaming={true} />);
     expect(container.querySelector('[class*="animate-blink"]')).toBeInTheDocument();
   });
+
+  it('renders ConnectWalletButton when toolCalls have wallet-required status', () => {
+    const msg: ChatMessage = {
+      ...assistantMsg,
+      toolCalls: [{ id: 't1', name: 'tool/deposit', status: 'wallet-required' }],
+    };
+    render(<MessageBubble message={msg} isStreaming={false} />);
+    expect(screen.getByTestId('connect-btn')).toBeInTheDocument();
+  });
+
+  it('renders TxStatusCard when message has pendingTransaction', () => {
+    const msg: ChatMessage = {
+      ...assistantMsg,
+      pendingTransaction: {
+        action: 'deposit',
+        protocol: 'Kamino',
+        symbol: 'USDC',
+        amount: 5,
+        reserveAddress: 'D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59',
+        mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        summary: 'Deposit 5 USDC to Kamino Main Market',
+        base64Txn: 'AQAAAA==',
+        blockhash: '11111111111111111111111111111111',
+        lastValidBlockHeight: '300000000',
+      },
+    };
+    render(<MessageBubble message={msg} isStreaming={false} />);
+    expect(screen.getByTestId('tx-card')).toBeInTheDocument();
+  });
+
+  it('renders KamiCursor alone (no Markdown) when waiting for first token', () => {
+    const msg: ChatMessage = {
+      id: 'm-empty',
+      role: 'assistant',
+      content: '',
+      timestamp: 0,
+    };
+    const { container } = render(<MessageBubble message={msg} isStreaming={true} />);
+    expect(container.querySelector('[class*="animate-blink"]')).toBeInTheDocument();
+    expect(screen.queryByTestId('md')).not.toBeInTheDocument();
+  });
 });
