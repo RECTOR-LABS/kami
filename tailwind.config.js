@@ -58,6 +58,8 @@ export default {
       },
       animation: {
         'cascade-up': 'cascade-up 800ms cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards',
+        'cascade-up-compact': 'cascade-up 600ms cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards',
+        'cascade-up-mini': 'cascade-up 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards',
         blink: 'blink 1s step-end infinite',
         'pulse-dot': 'pulse-dot 2s ease-out infinite',
       },

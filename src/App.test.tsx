@@ -26,6 +26,24 @@ vi.mock('./components/WalletProvider', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('./components/chat/SidebarShell', () => ({
+  default: () => <div data-testid="sidebar-shell" />,
+}));
+
+vi.mock('./components/chat/ChatHeader', () => ({
+  default: ({ conversationTitle }: { conversationTitle: string }) => (
+    <div data-testid="chat-header">{conversationTitle}</div>
+  ),
+}));
+
+vi.mock('./components/chat/ChatInputShell', () => ({
+  default: () => <div data-testid="chat-input-shell" />,
+}));
+
+vi.mock('./components/chat/MessageBubble', () => ({
+  default: () => <div data-testid="message-bubble" />,
+}));
+
 vi.mock('./hooks/useChat', () => ({
   useChat: () => ({
     conversations: [{ id: 'c1', title: 'first chat', messages: [], createdAt: 1, updatedAt: 1 }],
@@ -68,11 +86,11 @@ describe('App connect-gating', () => {
     expect(screen.queryByText('Type. Sign.')).not.toBeInTheDocument();
   });
 
-  it('renders the chat shell (Sidebar + ChatPanel) when wallet is connected', () => {
+  it('renders the chat shell when wallet is connected', () => {
     mockWallet.connected = true;
     render(<App />);
-    // ChatPanel header shows the activeConversation title from the useChat mock.
-    // Multiple matches expected (Sidebar list + ChatPanel header), so use getAllByText.
-    expect(screen.getAllByText('first chat').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('sidebar-shell')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-header')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-input-shell')).toBeInTheDocument();
   });
 });

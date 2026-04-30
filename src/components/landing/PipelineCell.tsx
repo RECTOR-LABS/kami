@@ -1,5 +1,5 @@
 import { Terminal, PenLine, CheckCircle2, type LucideIcon } from 'lucide-react';
-import BentoCell from './BentoCell';
+import BentoCell from '../bento/BentoCell';
 import { PIPELINE_STEPS, type PipelineIconKey } from '../../lib/landing-content';
 
 const ICON_MAP: Record<PipelineIconKey, LucideIcon> = {

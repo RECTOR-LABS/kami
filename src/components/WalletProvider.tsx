@@ -15,39 +15,40 @@ function useWalletModalTheme() {
     style.id = STYLE_ID;
     style.textContent = `
       .wallet-adapter-modal-wrapper {
-        background: #12121a !important;
-        border: 1px solid #1e1e2e !important;
-        border-radius: 14px !important;
+        background: #221a14 !important;
+        border: 1px solid rgba(245, 230, 211, 0.12) !important;
+        border-radius: 24px !important;
         box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5) !important;
       }
       .wallet-adapter-modal-title {
-        color: #e2e8f0 !important;
-        font-weight: 600 !important;
+        color: #F5E6D3 !important;
+        font-weight: 700 !important;
       }
       .wallet-adapter-modal-list {
         gap: 6px !important;
       }
       .wallet-adapter-modal-list .wallet-adapter-button {
-        background: #17171f !important;
-        color: #e2e8f0 !important;
-        border: 1px solid #1e1e2e !important;
+        background: #2a2117 !important;
+        color: #F5E6D3 !important;
+        border: 1px solid rgba(245, 230, 211, 0.12) !important;
         font-weight: 500 !important;
-        border-radius: 10px !important;
+        border-radius: 16px !important;
         transition: background 0.15s, border-color 0.15s !important;
       }
       .wallet-adapter-modal-list .wallet-adapter-button:hover,
       .wallet-adapter-modal-list .wallet-adapter-button:not(:disabled):active {
-        background: #1e1e2e !important;
-        color: #ffffff !important;
+        background: rgba(255, 165, 0, 0.05) !important;
+        border-color: rgba(255, 165, 0, 0.4) !important;
+        color: #FFA500 !important;
       }
       .wallet-adapter-modal-list-more {
-        color: #64748b !important;
+        color: rgba(245, 230, 211, 0.6) !important;
       }
       .wallet-adapter-modal-button-close {
         background: transparent !important;
       }
       .wallet-adapter-modal-button-close:hover {
-        background: rgba(255, 255, 255, 0.06) !important;
+        background: rgba(255, 165, 0, 0.05) !important;
       }
     `;
     document.head.appendChild(style);

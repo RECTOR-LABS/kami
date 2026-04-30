@@ -28,7 +28,7 @@ describe('markdown-renderer risk chips', () => {
     render(<>{renderMarkdown('Unknown: `:risk-extreme:` here.')}</>);
     const code = screen.getByText(':risk-extreme:');
     expect(code).toBeInTheDocument();
-    expect(code).toHaveClass('text-purple-300');
+    expect(code).toHaveClass('text-kami-amber');
     expect(screen.queryByText('Extreme risk')).not.toBeInTheDocument();
   });
 
@@ -36,7 +36,7 @@ describe('markdown-renderer risk chips', () => {
     render(<>{renderMarkdown('Call `findYield` to scan reserves.')}</>);
     const code = screen.getByText('findYield');
     expect(code).toBeInTheDocument();
-    expect(code).toHaveClass('text-purple-300');
+    expect(code).toHaveClass('text-kami-amber');
     expect(code).not.toHaveClass('text-kami-danger');
     expect(code).not.toHaveClass('text-amber-400');
     expect(code).not.toHaveClass('text-kami-success');

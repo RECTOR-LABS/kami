@@ -1,5 +1,5 @@
 import { ArrowLeftRight, ArrowUpRight, Check } from 'lucide-react';
-import BentoCell from './BentoCell';
+import BentoCell from '../bento/BentoCell';
 import { LATEST_TX } from '../../lib/landing-content';
 
 interface Props {

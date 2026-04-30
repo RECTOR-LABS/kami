@@ -5,7 +5,7 @@ import {
   PenLine,
   type LucideIcon,
 } from 'lucide-react';
-import BentoCell from './BentoCell';
+import BentoCell from '../bento/BentoCell';
 import type { ToolCellData, ToolIconKey } from '../../lib/landing-content';
 
 const ICON_MAP: Record<ToolIconKey, LucideIcon> = {
