@@ -27,35 +27,35 @@ const RISK_LABELS = {
 
 const components: Components = {
   h1: ({ children }) => (
-    <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>
+    <h1 className="text-xl font-bold text-kami-cream mt-4 mb-2">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-lg font-semibold text-white mt-4 mb-2">{children}</h2>
+    <h2 className="text-lg font-semibold text-kami-cream mt-4 mb-2">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-base font-semibold text-white mt-4 mb-2">{children}</h3>
+    <h3 className="text-base font-semibold text-kami-cream mt-4 mb-2">{children}</h3>
   ),
   h4: ({ children }) => (
-    <h4 className="text-sm font-semibold text-white mt-3 mb-1.5">{children}</h4>
+    <h4 className="text-sm font-semibold text-kami-cream mt-3 mb-1.5">{children}</h4>
   ),
   p: ({ children }) => (
-    <p className="text-kami-text leading-relaxed">{children}</p>
+    <p className="text-kami-cream leading-relaxed">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="list-disc ml-5 space-y-1 text-kami-text leading-relaxed">{children}</ul>
+    <ul className="list-disc ml-5 space-y-1 text-kami-cream leading-relaxed">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="list-decimal ml-5 space-y-1 text-kami-text leading-relaxed">{children}</ol>
+    <ol className="list-decimal ml-5 space-y-1 text-kami-cream leading-relaxed">{children}</ol>
   ),
   li: ({ children }) => <li>{children}</li>,
   strong: ({ children }) => (
-    <strong className="font-semibold text-white">{children}</strong>
+    <strong className="font-semibold text-kami-cream">{children}</strong>
   ),
-  em: ({ children }) => <em className="italic text-kami-text">{children}</em>,
-  del: ({ children }) => <del className="text-kami-muted">{children}</del>,
-  hr: () => <hr className="border-kami-border my-3" />,
+  em: ({ children }) => <em className="italic text-kami-cream">{children}</em>,
+  del: ({ children }) => <del className="text-kami-creamMuted">{children}</del>,
+  hr: () => <hr className="border-kami-cellBorder my-3" />,
   blockquote: ({ children }) => (
-    <blockquote className="border-l-2 border-kami-accent pl-3 my-2 italic text-kami-muted">
+    <blockquote className="border-l-2 border-kami-amber/40 pl-3 my-2 italic text-kami-creamMuted">
       {children}
     </blockquote>
   ),
@@ -68,7 +68,7 @@ const components: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-kami-accent hover:text-kami-accentHover underline underline-offset-2 break-words"
+        className="text-kami-amber hover:opacity-80 underline underline-offset-2 break-words"
       >
         {children}
       </a>
@@ -99,10 +99,10 @@ const components: Components = {
     }
     const isBlock = typeof className === 'string' && className.startsWith('language-');
     if (isBlock) {
-      return <code className={`${className} text-sm font-mono text-kami-text`}>{children}</code>;
+      return <code className={`${className} text-sm font-mono text-kami-cream`}>{children}</code>;
     }
     return (
-      <code className="bg-kami-border px-1.5 py-0.5 rounded text-sm font-mono text-purple-300">
+      <code className="bg-kami-cellElevated px-1.5 py-0.5 rounded text-sm font-mono text-kami-amber">
         {children}
       </code>
     );
@@ -122,34 +122,34 @@ const components: Components = {
     return (
       <div className="my-3 rounded-lg overflow-hidden">
         {lang && (
-          <div className="bg-kami-border px-3 py-1.5 text-xs text-kami-muted font-mono">
+          <div className="bg-kami-cellElevated px-3 py-1.5 text-xs text-kami-creamMuted font-mono">
             {lang}
           </div>
         )}
-        <pre className="bg-[#0d0d14] p-3 overflow-x-auto">{children}</pre>
+        <pre className="bg-kami-cellElevated p-3 overflow-x-auto">{children}</pre>
       </div>
     );
   },
   table: ({ children }) => (
-    <div className="my-3 overflow-x-auto rounded-lg border border-kami-border">
+    <div className="my-3 overflow-x-auto rounded-lg border border-kami-cellBorder">
       <table className="min-w-full text-sm border-collapse">{children}</table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-kami-border/60">{children}</thead>,
+  thead: ({ children }) => <thead className="bg-kami-cellElevated/60">{children}</thead>,
   tbody: ({ children }) => (
-    <tbody className="divide-y divide-kami-border">{children}</tbody>
+    <tbody className="divide-y divide-kami-cellBorder">{children}</tbody>
   ),
   tr: ({ children }) => <tr>{children}</tr>,
   th: ({ children, style }) => (
     <th
-      className="px-3 py-2 text-left font-semibold text-white border-b border-kami-border"
+      className="px-3 py-2 text-left font-semibold text-kami-cream border-b border-kami-cellBorder"
       style={style}
     >
       {children}
     </th>
   ),
   td: ({ children, style }) => (
-    <td className="px-3 py-2 text-kami-text align-top" style={style}>
+    <td className="px-3 py-2 text-kami-cream align-top" style={style}>
       {children}
     </td>
   ),

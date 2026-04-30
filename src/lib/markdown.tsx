@@ -4,7 +4,7 @@ const MarkdownRenderer = lazy(() => import('./markdown-renderer'));
 
 export function Markdown({ text }: { text: string }) {
   return (
-    <Suspense fallback={<p className="text-kami-text leading-relaxed whitespace-pre-wrap">{text}</p>}>
+    <Suspense fallback={<p className="text-kami-cream leading-relaxed whitespace-pre-wrap">{text}</p>}>
       <MarkdownRenderer text={text} />
     </Suspense>
   );
