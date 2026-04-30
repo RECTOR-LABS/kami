@@ -33,16 +33,16 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div
         role="alert"
-        className="flex h-screen items-center justify-center bg-kami-bg text-kami-text px-6"
+        className="flex h-screen items-center justify-center bg-kami-sepiaBg text-kami-cream px-6"
       >
-        <div className="max-w-lg w-full rounded-lg border border-kami-border bg-kami-surface p-6 space-y-4">
-          <h1 className="text-xl font-semibold text-kami-danger">Kami hit a render error.</h1>
-          <p className="text-kami-muted text-sm">
+        <div className="max-w-lg w-full rounded-2xl border border-kami-cellBorder bg-kami-cellBase p-6 space-y-4">
+          <h1 className="text-xl font-display font-bold text-kami-amber">Kami hit a render error.</h1>
+          <p className="text-kami-creamMuted text-sm">
             Something inside the app threw while drawing the screen. Reloading usually clears it. If
             it keeps happening, please reach out — the error is logged to the browser console.
           </p>
           {isDev && (
-            <pre className="overflow-auto rounded bg-kami-bg border border-kami-border p-3 text-xs text-kami-warning whitespace-pre-wrap">
+            <pre className="overflow-auto rounded-xl bg-kami-cellElevated border border-kami-cellBorder p-3 text-xs text-kami-amber whitespace-pre-wrap font-mono">
               {error.name}: {error.message}
               {error.stack ? '\n\n' + error.stack : ''}
             </pre>
@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button
             type="button"
             onClick={this.reload}
-            className="inline-flex items-center justify-center rounded-md bg-kami-accent hover:bg-kami-accentHover px-4 py-2 text-sm font-medium text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-2xl bg-kami-amber hover:opacity-95 active:opacity-90 px-4 py-2 text-sm font-mono font-bold text-kami-sepiaBg transition-opacity"
           >
             Reload Kami
           </button>
