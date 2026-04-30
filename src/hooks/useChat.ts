@@ -136,6 +136,21 @@ export function useChat() {
     [conversations, persist]
   );
 
+  const updatePendingTransaction = useCallback(
+    (messageId: string, patch: Partial<PendingTransaction>) => {
+      const updated = conversations.map((c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === messageId && m.pendingTransaction
+            ? { ...m, pendingTransaction: { ...m.pendingTransaction, ...patch } }
+            : m
+        ),
+      }));
+      persist(updated);
+    },
+    [conversations, persist]
+  );
+
   const sendMessage = useCallback(
     async (content: string, walletAddress?: string | null) => {
       if (!content.trim() || isStreaming) return;
@@ -333,5 +348,6 @@ export function useChat() {
     deleteConversation,
     clearAllConversations,
     renameConversation,
+    updatePendingTransaction,
   };
 }
