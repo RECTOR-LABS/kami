@@ -51,7 +51,7 @@ const base64Txn = getBase64EncodedWireTransaction(compiledTx);
 
 (Exact pattern in [`server/tools/kamino.ts:642-675`](../server/tools/kamino.ts) — the `createNoopSigner` + `compileTransaction` + `getBase64EncodedWireTransaction` block inside `buildKaminoTxn`.)
 
-The UI renders a Sign & Send card (`src/components/SignTransactionCard.tsx`) with the exact action / amount / protocol; the user signs with their wallet; the client submits via a same-origin `/api/rpc` proxy; confirmation is polled over HTTP (`getSignatureStatuses` + `getBlockHeight`) since Vercel Functions cannot upgrade the WebSockets that `connection.confirmTransaction` requires.
+The UI renders a Sign & Send card (`src/components/chat/TxStatusCard.tsx`) with the exact action / amount / protocol; the user signs with their wallet; the client submits via a same-origin `/api/rpc` proxy; confirmation is polled over HTTP (`getSignatureStatuses` + `getBlockHeight`) since Vercel Functions cannot upgrade the WebSockets that `connection.confirmTransaction` requires.
 
 **Preflight simulation:** every `build*` tool runs `simulateTransaction` against the compiled payload **before** returning it ([`server/tools/kamino.ts:424-490`](../server/tools/kamino.ts)). If the wallet is short on SOL for first-time Kamino account rent, Kami surfaces the precise shortfall in lamports — the user sees an exact top-up amount instead of burning a failed-tx fee discovering it at sign-time.
 
@@ -107,7 +107,7 @@ ToolResult { ok: true, data: { base64Txn, blockhash, lastValidBlockHeight, summa
       ↓
 AI SDK serialises the result back into the stream
       ↓
-ChatMessage.tsx sees a buildDeposit tool-result → renders SignTransactionCard
+MessageBubble.tsx sees a buildDeposit tool-result → renders TxStatusCard
       ↓
 user clicks Sign → wallet pops → user signs
       ↓

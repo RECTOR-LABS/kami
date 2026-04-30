@@ -31,7 +31,7 @@ returns a ready-to-sign mainnet transaction.
 | LLM | `anthropic/claude-sonnet-4.6` via OpenRouter | (env var `KAMI_MODEL`) |
 | DeFi | `@kamino-finance/klend-sdk` 7.3 on `@solana/kit` v2 | `server/tools/kamino.ts` |
 | Tx build | `createNoopSigner` + `compileTransaction` + `getBase64EncodedWireTransaction` | `server/tools/kamino.ts:642-675` |
-| Confirmation | HTTP polling (`getSignatureStatuses` + `getBlockHeight`) | `src/components/SignTransactionCard.tsx` |
+| Confirmation | HTTP polling (`getSignatureStatuses` + `getBlockHeight`) | `src/components/chat/TxStatusCard.tsx` |
 | Rate limit | `@upstash/ratelimit` against VPS-hosted Redis (Upstash REST shim) | `server/ratelimit.ts` |
 
 ## Production state
@@ -120,7 +120,7 @@ ssh kami 'cd /home/kami/redis && docker compose logs --tail=50 redis-http'
   to surface.
 - **`wsEndpoint: ''`** on the Connection config + HTTP polling loop. Do NOT call
   `connection.confirmTransaction` — it tries to open a WS subscription Vercel can't upgrade
-  and will hang. See `pollSignatureStatus` in `src/components/SignTransactionCard.tsx`.
+  and will hang. See `pollSignatureStatus` in `src/components/chat/TxStatusCard.tsx`.
 - **Modern Solflare registers via Wallet Standard.** `wallets=[]` + Wallet Standard
   discovery is the path now. Explicit `SolflareWalletAdapter` is redundant and logs a warning.
 - **Kamino obligation rent (~0.022 SOL)** is permanently locked per (user, market) pair —
@@ -227,7 +227,7 @@ server/
 src/
   components/
     ErrorBoundary.tsx       # top-level React error catch (Day 8)
-    SignTransactionCard.tsx # wallet-sign flow + HTTP polling
+    chat/TxStatusCard.tsx   # wallet-sign flow + HTTP polling (Day 20 chat-shell amber)
     WalletProvider.tsx      # Solana wallet adapter wiring (Wallet Standard discovery)
     ChatPanel.tsx, ChatInput.tsx, ChatMessage.tsx, EmptyState.tsx, Sidebar.tsx,
     ToolCallBadges.tsx      # tool-call event badges with dedup + ×N suffix (Day 12)
