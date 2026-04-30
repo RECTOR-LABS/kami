@@ -54,7 +54,7 @@ describe('SidebarShell', () => {
   it('opens settings menu and shows Clear all option', () => {
     render(<SidebarShell {...baseProps} />);
     fireEvent.click(screen.getByLabelText(/settings/i));
-    expect(screen.getByRole('button', { name: /clear all conversations/i })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /clear all conversations/i })).toBeInTheDocument();
   });
 
   it('fires onClearAll after window.confirm accepts', () => {
@@ -62,7 +62,7 @@ describe('SidebarShell', () => {
     window.confirm = vi.fn(() => true);
     render(<SidebarShell {...baseProps} onClearAll={onClearAll} />);
     fireEvent.click(screen.getByLabelText(/settings/i));
-    fireEvent.click(screen.getByRole('button', { name: /clear all conversations/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /clear all conversations/i }));
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });
 
@@ -71,7 +71,19 @@ describe('SidebarShell', () => {
     window.confirm = vi.fn(() => false);
     render(<SidebarShell {...baseProps} onClearAll={onClearAll} />);
     fireEvent.click(screen.getByLabelText(/settings/i));
-    fireEvent.click(screen.getByRole('button', { name: /clear all conversations/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /clear all conversations/i }));
     expect(onClearAll).not.toHaveBeenCalled();
+  });
+
+  it('exposes APG menu ARIA semantics on settings button + dropdown', () => {
+    render(<SidebarShell {...baseProps} />);
+    const settingsBtn = screen.getByLabelText(/settings/i);
+    expect(settingsBtn).toHaveAttribute('aria-haspopup', 'menu');
+    expect(settingsBtn).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(settingsBtn);
+    expect(settingsBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /clear all conversations/i })).toBeInTheDocument();
   });
 });

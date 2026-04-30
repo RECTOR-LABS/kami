@@ -86,6 +86,8 @@ export default function SidebarShell({
             type="button"
             onClick={() => setIsSettingsOpen((v) => !v)}
             aria-label="Settings"
+            aria-haspopup="menu"
+            aria-expanded={isSettingsOpen}
             className="p-1 text-kami-creamMuted hover:text-kami-cream transition-colors"
           >
             <Settings className="w-5 h-5" aria-hidden="true" />
@@ -105,9 +107,10 @@ export default function SidebarShell({
                 onClick={() => setIsSettingsOpen(false)}
                 aria-hidden="true"
               />
-              <div className="absolute right-3 top-full mt-2 z-50 w-56 bg-kami-cellBase border border-kami-cellBorder rounded-2xl shadow-lg py-1">
+              <div role="menu" className="absolute right-3 top-full mt-2 z-50 w-56 bg-kami-cellBase border border-kami-cellBorder rounded-2xl shadow-lg py-1">
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={handleClearAll}
                   className="w-full text-left px-4 py-2 font-mono text-xs text-kami-cream hover:bg-kami-amberHaze hover:text-kami-amber transition-colors"
                 >
