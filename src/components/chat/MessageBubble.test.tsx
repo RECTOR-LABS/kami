@@ -5,8 +5,13 @@ vi.mock('../../lib/markdown', () => ({
   Markdown: ({ text }: { text: string }) => <span data-testid="md">{text}</span>,
 }));
 
+const txCardProps = vi.hoisted(() => ({ lastOnStatusChange: null as ((p: unknown) => void) | null }));
+
 vi.mock('./TxStatusCard', () => ({
-  default: () => <div data-testid="tx-card" />,
+  default: ({ onStatusChange }: { onStatusChange?: (p: unknown) => void }) => {
+    txCardProps.lastOnStatusChange = onStatusChange ?? null;
+    return <div data-testid="tx-card" />;
+  },
 }));
 
 vi.mock('../ConnectWalletButton', () => ({
@@ -97,5 +102,60 @@ describe('MessageBubble', () => {
     const { container } = render(<MessageBubble message={msg} isStreaming={true} />);
     expect(container.querySelector('[class*="animate-blink"]')).toBeInTheDocument();
     expect(screen.queryByTestId('md')).not.toBeInTheDocument();
+  });
+
+  it('forwards onPendingTransactionChange to TxStatusCard, capturing message id in closure', () => {
+    const onPendingTransactionChange = vi.fn();
+    const msg: ChatMessage = {
+      ...assistantMsg,
+      id: 'msg-with-tx',
+      pendingTransaction: {
+        action: 'deposit',
+        protocol: 'Kamino',
+        symbol: 'USDC',
+        amount: 5,
+        reserveAddress: 'r1',
+        mint: 'm1',
+        summary: 's1',
+        base64Txn: 'AAAA',
+        blockhash: 'b1',
+        lastValidBlockHeight: '100',
+      },
+    };
+    render(
+      <MessageBubble
+        message={msg}
+        isStreaming={false}
+        onPendingTransactionChange={onPendingTransactionChange}
+      />
+    );
+
+    // The mock captured the closure that the parent passed to TxStatusCard.
+    expect(txCardProps.lastOnStatusChange).toBeDefined();
+    txCardProps.lastOnStatusChange!({ status: 'confirmed' });
+
+    // The closure invoked the parent callback with the message id.
+    expect(onPendingTransactionChange).toHaveBeenCalledWith('msg-with-tx', { status: 'confirmed' });
+  });
+
+  it('passes undefined onStatusChange when onPendingTransactionChange is omitted', () => {
+    const msg: ChatMessage = {
+      ...assistantMsg,
+      pendingTransaction: {
+        action: 'deposit',
+        protocol: 'Kamino',
+        symbol: 'USDC',
+        amount: 5,
+        reserveAddress: 'r1',
+        mint: 'm1',
+        summary: 's1',
+        base64Txn: 'AAAA',
+        blockhash: 'b1',
+        lastValidBlockHeight: '100',
+      },
+    };
+    txCardProps.lastOnStatusChange = null; // reset before render
+    render(<MessageBubble message={msg} isStreaming={false} />);
+    expect(txCardProps.lastOnStatusChange).toBeNull();
   });
 });

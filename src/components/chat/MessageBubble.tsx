@@ -5,14 +5,15 @@ import ToolBadge from './ToolBadge';
 import TxStatusCard from './TxStatusCard';
 import ConnectWalletButton from '../ConnectWalletButton';
 import { groupToolCalls } from './groupToolCalls';
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, PendingTransaction } from '../../types';
 
 interface Props {
   message: ChatMessage;
   isStreaming: boolean;
+  onPendingTransactionChange?: (messageId: string, patch: Partial<PendingTransaction>) => void;
 }
 
-export default function MessageBubble({ message, isStreaming }: Props) {
+export default function MessageBubble({ message, isStreaming, onPendingTransactionChange }: Props) {
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -61,7 +62,14 @@ export default function MessageBubble({ message, isStreaming }: Props) {
         )}
         {message.pendingTransaction && (
           <div className="mt-3">
-            <TxStatusCard transaction={message.pendingTransaction} />
+            <TxStatusCard
+              transaction={message.pendingTransaction}
+              onStatusChange={
+                onPendingTransactionChange
+                  ? (patch) => onPendingTransactionChange(message.id, patch)
+                  : undefined
+              }
+            />
           </div>
         )}
         {showConnectCta && (

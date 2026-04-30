@@ -26,6 +26,7 @@ function AppContent() {
     deleteConversation,
     clearAllConversations,
     renameConversation,
+    updatePendingTransaction,
   } = useChat();
 
   useEffect(() => {
@@ -85,6 +86,7 @@ function AppContent() {
                     msg.role === 'assistant' &&
                     idx === activeConversation.messages.length - 1
                   }
+                  onPendingTransactionChange={updatePendingTransaction}
                 />
               ))}
               <div ref={messagesEndRef} />
