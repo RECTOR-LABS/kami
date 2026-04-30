@@ -157,6 +157,38 @@ describe('TxStatusCard', () => {
     expect(lastCall.error.length).toBeGreaterThan(0);
   });
 
+  it('fires onStatusChange with failed+error when poll fails (blockhash-expired)', async () => {
+    wallet.sendTransaction.mockResolvedValue('sig-stale');
+    // Poll never sees the signature on-chain, and blockhash check fails.
+    connection.getSignatureStatuses.mockResolvedValue({ value: [null] });
+    connection.getBlockHeight.mockResolvedValue(99999); // > lastValidBlockHeight (100)
+    const onStatusChange = vi.fn();
+
+    render(
+      <TxStatusCard
+        transaction={{ ...baseTx, lastValidBlockHeight: '100' }}
+        onStatusChange={onStatusChange}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+
+    // POLL_INTERVAL_MS is 2_000 — extend waitFor beyond the default 1s ceiling.
+    await waitFor(
+      () => {
+        const failedCalls = onStatusChange.mock.calls.filter(
+          ([patch]) => patch.status === 'failed'
+        );
+        expect(failedCalls.length).toBeGreaterThan(0);
+      },
+      { timeout: 4_000 }
+    );
+
+    const failedCall = onStatusChange.mock.calls.find(
+      ([patch]) => patch.status === 'failed'
+    )!;
+    expect(failedCall[0].error).toMatch(/blockhash expired/i);
+  });
+
   it('does not throw when onStatusChange prop is omitted', async () => {
     wallet.sendTransaction.mockResolvedValue('sig-orphan');
     connection.getSignatureStatuses.mockResolvedValue({
