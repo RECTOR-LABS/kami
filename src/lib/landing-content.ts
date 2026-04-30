@@ -9,7 +9,7 @@ export interface LandingStat {
 
 export const LANDING_STATS: ReadonlyArray<LandingStat> = [
   { key: 'sys.tools_loaded', value: '7 active', highlight: true },
-  { key: 'ci.tests_passing', value: '270 suite', highlight: false },
+  { key: 'ci.tests_passing', value: '287 suite', highlight: false },
   { key: 'net.roundtrips', value: '3 mainnet', highlight: false },
   { key: 'sys.genesis', value: '2026-04-19', highlight: false },
 ];

@@ -34,7 +34,7 @@ export default function ToolCell({ tool, delay }: Props) {
       <p className="font-sans text-sm text-kami-cream/80 leading-relaxed flex-1">
         {tool.description}
       </p>
-      <div className="font-mono text-[11px] text-kami-creamMuted px-3 py-2 rounded-lg border border-kami-cellBorder bg-kami-sepiaBg/40 group-hover:border-kami-amber/40 transition-colors">
+      <div className="font-mono text-[11px] text-kami-creamMuted px-3 py-2 rounded-lg border border-kami-cellBorder bg-kami-sepiaBg/40 group-hover:border-kami-amber/40 transition-colors break-all">
         {tool.hint}
       </div>
     </BentoCell>
