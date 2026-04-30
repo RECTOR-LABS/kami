@@ -596,3 +596,87 @@ describe('useChat updatePendingTransaction', () => {
     expect(msg2?.pendingTransaction?.signature).toBeUndefined();
   });
 });
+
+describe('useChat updatePendingTransaction stability', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('updatePendingTransaction reference is stable across re-renders', () => {
+    const { result } = renderHook(() => useChat());
+    const ref1 = result.current.updatePendingTransaction;
+
+    act(() => {
+      result.current.newConversation();
+    });
+
+    const ref2 = result.current.updatePendingTransaction;
+    expect(ref1).toBe(ref2);
+  });
+
+  it('a captured updatePendingTransaction reference reads latest conversations on call', () => {
+    const conv = {
+      id: 'c1',
+      title: 'deposit',
+      messages: [
+        {
+          id: 'a1',
+          role: 'assistant' as const,
+          content: 'tx',
+          timestamp: 1,
+          pendingTransaction: {
+            action: 'deposit' as const,
+            protocol: 'Kamino' as const,
+            symbol: 'USDC',
+            amount: 5,
+            reserveAddress: 'r1',
+            mint: 'm1',
+            summary: 's1',
+            base64Txn: 'AAAA',
+            blockhash: 'b1',
+            lastValidBlockHeight: '100',
+            status: 'submitted' as const,
+            signature: 'sig-1',
+          },
+        },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    // Capture the mount-time reference (simulating what TxStatusCard's resume useEffect does).
+    const capturedUpdate = result.current.updatePendingTransaction;
+
+    // Now mutate state via a different code path — this would invalidate a stale-snapshot closure.
+    act(() => {
+      result.current.newConversation();
+    });
+
+    // Verify state change happened: 2 conversations now.
+    expect(result.current.conversations.length).toBe(2);
+
+    // Call the captured (mount-time) reference and patch the original message.
+    act(() => {
+      capturedUpdate('a1', { status: 'confirmed' });
+    });
+
+    // BOTH the new conversation AND the patched message must survive.
+    expect(result.current.conversations.length).toBe(2); // new conversation NOT wiped
+    const c1 = result.current.conversations.find((c) => c.id === 'c1');
+    expect(c1?.messages[0].pendingTransaction?.status).toBe('confirmed');
+
+    // localStorage agrees.
+    const stored = JSON.parse(localStorage.getItem('kami_conversations')!);
+    expect(stored.length).toBe(2);
+    const storedC1 = stored.find((c: { id: string }) => c.id === 'c1');
+    expect(storedC1.messages[0].pendingTransaction.status).toBe('confirmed');
+  });
+});
