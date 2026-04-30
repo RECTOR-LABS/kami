@@ -95,14 +95,15 @@ const [phase, setPhase] = useState<Phase>(() => {
 });
 ```
 
-**New `useEffect` on mount** — when initial phase is `'broadcasting'` AND a signature is present, resume polling:
+**New `useEffect` on mount** — when persisted state is `'submitted'` with a signature, resume polling:
 
 ```ts
 useEffect(() => {
-  if (phase !== 'broadcasting' || !signature) return;
+  if (transaction.status !== 'submitted' || !transaction.signature) return;
+  const sig = transaction.signature;
   const lastValidBlockHeight = Number(transaction.lastValidBlockHeight);
   let active = true;
-  pollSignatureStatus(connection, signature, lastValidBlockHeight).then((outcome) => {
+  pollSignatureStatus(connection, sig, lastValidBlockHeight).then((outcome) => {
     if (!active || cancelRef.current) return;
     if (outcome.status === 'confirmed') {
       setPhase('confirmed');
@@ -116,10 +117,10 @@ useEffect(() => {
   });
   return () => { active = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []); // mount-only; do not re-run on prop change
+}, []); // mount-only resume — never re-runs
 ```
 
-The empty-deps array is deliberate — this is one-shot resume logic; subsequent transitions are driven by `handleSign`. We carefully NOT re-fire on prop change because `transaction.signature` may legitimately update (via the parent re-render after the persist round-trip).
+The empty-deps array is deliberate — this is one-shot resume logic; subsequent transitions are driven by `handleSign`. Reading from `transaction.*` (props) rather than `phase`/`signature` (state) makes the intent explicit: "if mounted in `'submitted'` state, kick the poll once". The phase initializer above already mapped `status==='submitted' + signature` → `'broadcasting'`, so the UI is in the right state when this effect runs.
 
 **`onStatusChange` calls inside `handleSign`** — fire-and-forget at three points:
 
