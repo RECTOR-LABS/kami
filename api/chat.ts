@@ -119,7 +119,11 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   });
 
   const controller = new AbortController();
-  req.on('close', () => {
+  // Listen on res, not req: in Vercel's serverless runtime req.on('close') fires
+  // after readBody() drains the body, which kills the LLM stream before any
+  // tokens are produced. res.on('close') only fires when the response is
+  // forcibly destroyed before res.end() — i.e., the client genuinely disconnected.
+  res.on('close', () => {
     if (!res.writableEnded) {
       controller.abort();
       logger.info({ wallet: walletAddress ?? null }, 'chat:aborted');

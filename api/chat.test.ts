@@ -369,7 +369,12 @@ describe('api/chat handler', () => {
     expect(chatMocks.lastSignal?.aborted).toBe(false);
   });
 
-  it('aborts the AbortSignal when req emits close before res.writableEnded', async () => {
+  it('registers a close listener on res (not req) for abort detection', async () => {
+    // We listen on res, not req — Vercel's serverless runtime fires
+    // req.on('close') after readBody() drains the body, which would prematurely
+    // kill the LLM stream. res.on('close') only fires when the response is
+    // forcibly destroyed (real client disconnect mid-stream). This test pins
+    // the listener registration contract so the bug can't silently come back.
     let releaseStream: () => void = () => {};
     chatMocks.streamGate = new Promise<void>((r) => {
       releaseStream = r;
@@ -388,26 +393,45 @@ describe('api/chat handler', () => {
     await new Promise((r) => setImmediate(r));
     expect(chatMocks.lastSignal?.aborted).toBe(false);
 
-    (req as unknown as Readable).emit('close');
+    // res must have at least one close listener (from our handler). Calling
+    // it triggers controller.abort() because writableEnded is still false.
+    const resListeners = cap.res.listeners('close');
+    expect(resListeners.length).toBeGreaterThan(0);
+    (resListeners[0] as () => void)();
     expect(chatMocks.lastSignal?.aborted).toBe(true);
 
     releaseStream();
-    await handlerDone;
+    // The pipe may or may not unwind cleanly after mid-stream abort — both
+    // resolve and reject are acceptable since the abort assertion above is
+    // the actual contract under test.
+    await handlerDone.catch(() => {});
   });
 
-  it('does not abort the AbortSignal when req emits close after res.writableEnded', async () => {
+  it('does not abort the AbortSignal when req emits close (Vercel runtime quirk regression guard)', async () => {
+    // req.on('close') used to fire prematurely in Vercel, killing the stream
+    // before any tokens. Listener was moved to res. Verify req close has no
+    // effect on the abort signal.
+    let releaseStream: () => void = () => {};
+    chatMocks.streamGate = new Promise<void>((r) => {
+      releaseStream = r;
+    });
     ratelimitMocks.next = {
       ok: true,
       limit: 30,
       remaining: 29,
       reset: Date.now() + 60_000,
     };
+
     const req = makeReq({ body: validBody() });
     const cap = makeRes();
-    await handler(req, cap.res);
+    const handlerDone = handler(req, cap.res);
 
+    await new Promise((r) => setImmediate(r));
     (req as unknown as Readable).emit('close');
     expect(chatMocks.lastSignal?.aborted).toBe(false);
+
+    releaseStream();
+    await handlerDone;
   });
 
   it('returns 429 with X-RateLimit-Limit: 0 when identify() yields an empty string', async () => {
