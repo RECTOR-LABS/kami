@@ -102,4 +102,78 @@ describe('TxStatusCard', () => {
       expect(screen.getByText(/broadcasting/i)).toBeInTheDocument();
     });
   });
+
+  it('fires onStatusChange with submitted+signature after sendTransaction resolves', async () => {
+    wallet.sendTransaction.mockResolvedValue('sig-from-rpc-12345');
+    // First poll returns null — keeps state in broadcasting so we can assert the submitted callback fired pre-confirm.
+    connection.getSignatureStatuses.mockResolvedValue({ value: [null] });
+    connection.getBlockHeight.mockResolvedValue(50);
+    const onStatusChange = vi.fn();
+
+    render(<TxStatusCard transaction={baseTx} onStatusChange={onStatusChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+
+    await waitFor(() => {
+      expect(onStatusChange).toHaveBeenCalledWith({
+        status: 'submitted',
+        signature: 'sig-from-rpc-12345',
+      });
+    });
+  });
+
+  it('fires onStatusChange with confirmed when poll succeeds', async () => {
+    wallet.sendTransaction.mockResolvedValue('sig-confirm-1');
+    connection.getSignatureStatuses.mockResolvedValue({
+      value: [{ confirmationStatus: 'confirmed', err: null }],
+    });
+    connection.getBlockHeight.mockResolvedValue(50);
+    const onStatusChange = vi.fn();
+
+    render(<TxStatusCard transaction={baseTx} onStatusChange={onStatusChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+
+    // POLL_INTERVAL_MS is 2_000 — extend waitFor beyond the default 1s ceiling.
+    await waitFor(
+      () => {
+        expect(onStatusChange).toHaveBeenCalledWith({ status: 'confirmed' });
+      },
+      { timeout: 4_000 }
+    );
+  });
+
+  it('fires onStatusChange with failed+error when sendTransaction throws', async () => {
+    wallet.sendTransaction.mockRejectedValue(new Error('User rejected the request'));
+    const onStatusChange = vi.fn();
+
+    render(<TxStatusCard transaction={baseTx} onStatusChange={onStatusChange} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+
+    await waitFor(() => {
+      expect(onStatusChange).toHaveBeenCalled();
+    });
+    const lastCall = onStatusChange.mock.calls[onStatusChange.mock.calls.length - 1][0];
+    expect(lastCall.status).toBe('failed');
+    expect(typeof lastCall.error).toBe('string');
+    expect(lastCall.error.length).toBeGreaterThan(0);
+  });
+
+  it('does not throw when onStatusChange prop is omitted', async () => {
+    wallet.sendTransaction.mockResolvedValue('sig-orphan');
+    connection.getSignatureStatuses.mockResolvedValue({
+      value: [{ confirmationStatus: 'confirmed', err: null }],
+    });
+    connection.getBlockHeight.mockResolvedValue(50);
+
+    render(<TxStatusCard transaction={baseTx} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+
+    // No throw → confirmed UI eventually renders. POLL_INTERVAL_MS is 2_000 —
+    // extend waitFor beyond the default 1s ceiling.
+    await waitFor(
+      () => {
+        expect(screen.getByText(/confirmed/i)).toBeInTheDocument();
+      },
+      { timeout: 4_000 }
+    );
+  });
 });

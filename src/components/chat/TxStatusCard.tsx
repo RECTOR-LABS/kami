@@ -12,6 +12,7 @@ type Phase = 'needs-sign' | 'signing' | 'broadcasting' | 'confirmed' | 'failed';
 
 interface Props {
   transaction: PendingTransaction;
+  onStatusChange?: (patch: Partial<PendingTransaction>) => void;
 }
 
 const POLL_INTERVAL_MS = 2_000;
@@ -67,7 +68,7 @@ async function pollSignatureStatus(
   return { status: 'failed', reason: 'Timed out waiting for confirmation.' };
 }
 
-export default function TxStatusCard({ transaction }: Props) {
+export default function TxStatusCard({ transaction, onStatusChange }: Props) {
   const { publicKey, connected, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -112,6 +113,7 @@ export default function TxStatusCard({ transaction }: Props) {
       });
       setSignature(sig);
       setPhase('broadcasting');
+      onStatusChange?.({ status: 'submitted', signature: sig });
 
       const lastValidBlockHeight = Number(transaction.lastValidBlockHeight);
       const outcome = await pollSignatureStatus(connection, sig, lastValidBlockHeight);
@@ -119,10 +121,12 @@ export default function TxStatusCard({ transaction }: Props) {
 
       if (outcome.status === 'confirmed') {
         setPhase('confirmed');
+        onStatusChange?.({ status: 'confirmed' });
       } else {
         const classified = classifyWalletError(new Error(outcome.reason));
         setError(classified);
         setPhase('failed');
+        onStatusChange?.({ status: 'failed', error: outcome.reason });
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -130,6 +134,7 @@ export default function TxStatusCard({ transaction }: Props) {
       const classified = classifyWalletError(err);
       setError(classified);
       setPhase('failed');
+      onStatusChange?.({ status: 'failed', error: classified.message });
     }
   };
 
