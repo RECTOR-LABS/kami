@@ -413,3 +413,270 @@ describe('useChat sendMessage streaming', () => {
     expect(result.current.isStreaming).toBe(false);
   });
 });
+
+describe('useChat updatePendingTransaction', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function seedConversationsWithPendingTx() {
+    const conv = {
+      id: 'c1',
+      title: 'deposit flow',
+      messages: [
+        { id: 'u1', role: 'user' as const, content: 'deposit 5 USDC', timestamp: 1 },
+        {
+          id: 'a1',
+          role: 'assistant' as const,
+          content: 'tx ready',
+          timestamp: 2,
+          pendingTransaction: {
+            action: 'deposit' as const,
+            protocol: 'Kamino' as const,
+            symbol: 'USDC',
+            amount: 5,
+            reserveAddress: 'D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59',
+            mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            summary: 'Deposit 5 USDC',
+            base64Txn: 'AQAAAA==',
+            blockhash: 'bh-1',
+            lastValidBlockHeight: '300000000',
+            status: 'pending' as const,
+          },
+        },
+      ],
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+  }
+
+  it('patches the target message pendingTransaction with shallow merge', () => {
+    seedConversationsWithPendingTx();
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.updatePendingTransaction('a1', {
+        status: 'submitted',
+        signature: 'sig-abc',
+      });
+    });
+
+    const msg = result.current.activeConversation.messages.find((m) => m.id === 'a1');
+    expect(msg?.pendingTransaction?.status).toBe('submitted');
+    expect(msg?.pendingTransaction?.signature).toBe('sig-abc');
+    // Untouched fields preserved:
+    expect(msg?.pendingTransaction?.base64Txn).toBe('AQAAAA==');
+    expect(msg?.pendingTransaction?.amount).toBe(5);
+  });
+
+  it('persists the update to localStorage via saveConversations', () => {
+    seedConversationsWithPendingTx();
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.updatePendingTransaction('a1', { status: 'confirmed' });
+    });
+
+    const raw = localStorage.getItem('kami_conversations');
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!);
+    const persistedMsg = parsed[0].messages.find((m: { id: string }) => m.id === 'a1');
+    expect(persistedMsg.pendingTransaction.status).toBe('confirmed');
+  });
+
+  it('is a no-op when messageId is not found', () => {
+    seedConversationsWithPendingTx();
+    const { result } = renderHook(() => useChat());
+    const before = JSON.stringify(result.current.conversations);
+
+    act(() => {
+      result.current.updatePendingTransaction('non-existent-id', {
+        status: 'confirmed',
+      });
+    });
+
+    const after = JSON.stringify(result.current.conversations);
+    expect(after).toBe(before);
+  });
+
+  it('is a no-op when the message exists but has no pendingTransaction', () => {
+    const conv = {
+      id: 'c1',
+      title: 'plain chat',
+      messages: [
+        { id: 'u1', role: 'user' as const, content: 'hi', timestamp: 1 },
+        { id: 'a1', role: 'assistant' as const, content: 'hello', timestamp: 2 },
+      ],
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.updatePendingTransaction('a1', { status: 'confirmed' });
+    });
+
+    const msg = result.current.activeConversation.messages.find((m) => m.id === 'a1');
+    expect(msg?.pendingTransaction).toBeUndefined();
+  });
+
+  it('does not mutate other messages when patching one', () => {
+    const conv = {
+      id: 'c1',
+      title: 'two txs',
+      messages: [
+        {
+          id: 'a1',
+          role: 'assistant' as const,
+          content: 'tx1',
+          timestamp: 1,
+          pendingTransaction: {
+            action: 'deposit' as const,
+            protocol: 'Kamino' as const,
+            symbol: 'USDC',
+            amount: 1,
+            reserveAddress: 'r1',
+            mint: 'm1',
+            summary: 's1',
+            base64Txn: 'AAAA',
+            blockhash: 'b1',
+            lastValidBlockHeight: '100',
+            status: 'pending' as const,
+          },
+        },
+        {
+          id: 'a2',
+          role: 'assistant' as const,
+          content: 'tx2',
+          timestamp: 2,
+          pendingTransaction: {
+            action: 'borrow' as const,
+            protocol: 'Kamino' as const,
+            symbol: 'SOL',
+            amount: 0.5,
+            reserveAddress: 'r2',
+            mint: 'm2',
+            summary: 's2',
+            base64Txn: 'BBBB',
+            blockhash: 'b2',
+            lastValidBlockHeight: '200',
+            status: 'pending' as const,
+          },
+        },
+      ],
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.updatePendingTransaction('a1', {
+        status: 'confirmed',
+        signature: 'sig-1',
+      });
+    });
+
+    const msg1 = result.current.activeConversation.messages.find((m) => m.id === 'a1');
+    const msg2 = result.current.activeConversation.messages.find((m) => m.id === 'a2');
+    expect(msg1?.pendingTransaction?.status).toBe('confirmed');
+    expect(msg1?.pendingTransaction?.signature).toBe('sig-1');
+    expect(msg2?.pendingTransaction?.status).toBe('pending');
+    expect(msg2?.pendingTransaction?.signature).toBeUndefined();
+  });
+});
+
+describe('useChat updatePendingTransaction stability', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('updatePendingTransaction reference is stable across re-renders', () => {
+    const { result } = renderHook(() => useChat());
+    const ref1 = result.current.updatePendingTransaction;
+
+    act(() => {
+      result.current.newConversation();
+    });
+
+    const ref2 = result.current.updatePendingTransaction;
+    expect(ref1).toBe(ref2);
+  });
+
+  it('a captured updatePendingTransaction reference reads latest conversations on call', () => {
+    const conv = {
+      id: 'c1',
+      title: 'deposit',
+      messages: [
+        {
+          id: 'a1',
+          role: 'assistant' as const,
+          content: 'tx',
+          timestamp: 1,
+          pendingTransaction: {
+            action: 'deposit' as const,
+            protocol: 'Kamino' as const,
+            symbol: 'USDC',
+            amount: 5,
+            reserveAddress: 'r1',
+            mint: 'm1',
+            summary: 's1',
+            base64Txn: 'AAAA',
+            blockhash: 'b1',
+            lastValidBlockHeight: '100',
+            status: 'submitted' as const,
+            signature: 'sig-1',
+          },
+        },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    localStorage.setItem('kami_conversations', JSON.stringify([conv]));
+    localStorage.setItem('kami_active_conversation', 'c1');
+
+    const { result } = renderHook(() => useChat());
+
+    // Capture the mount-time reference (simulating what TxStatusCard's resume useEffect does).
+    const capturedUpdate = result.current.updatePendingTransaction;
+
+    // Now mutate state via a different code path — this would invalidate a stale-snapshot closure.
+    act(() => {
+      result.current.newConversation();
+    });
+
+    // Verify state change happened: 2 conversations now.
+    expect(result.current.conversations.length).toBe(2);
+
+    // Call the captured (mount-time) reference and patch the original message.
+    act(() => {
+      capturedUpdate('a1', { status: 'confirmed' });
+    });
+
+    // BOTH the new conversation AND the patched message must survive.
+    expect(result.current.conversations.length).toBe(2); // new conversation NOT wiped
+    const c1 = result.current.conversations.find((c) => c.id === 'c1');
+    expect(c1?.messages[0].pendingTransaction?.status).toBe('confirmed');
+
+    // localStorage agrees.
+    const stored = JSON.parse(localStorage.getItem('kami_conversations')!);
+    expect(stored.length).toBe(2);
+    const storedC1 = stored.find((c: { id: string }) => c.id === 'c1');
+    expect(storedC1.messages[0].pendingTransaction.status).toBe('confirmed');
+  });
+});

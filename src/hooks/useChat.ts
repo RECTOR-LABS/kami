@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, Conversation, PendingTransaction, ToolCallRecord } from '../types';
 
 const BUILD_TOOL_NAMES = new Set(['buildDeposit', 'buildBorrow', 'buildWithdraw', 'buildRepay']);
@@ -83,6 +83,15 @@ export function useChat() {
     saveConversations(updated);
   }, []);
 
+  // Mirror conversations into a ref so callbacks captured by long-lived async
+  // contexts (e.g. TxStatusCard's resume useEffect) read current state when
+  // they fire, not the snapshot at capture time. Prevents data-loss race
+  // where a stale-closure persist would overwrite intervening user activity.
+  const conversationsRef = useRef(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
   const switchConversation = useCallback((id: string) => {
     abortRef.current?.abort();
     setActiveId(id);
@@ -134,6 +143,21 @@ export function useChat() {
       persist(updated);
     },
     [conversations, persist]
+  );
+
+  const updatePendingTransaction = useCallback(
+    (messageId: string, patch: Partial<PendingTransaction>) => {
+      const updated = conversationsRef.current.map((c) => ({
+        ...c,
+        messages: c.messages.map((m) =>
+          m.id === messageId && m.pendingTransaction
+            ? { ...m, pendingTransaction: { ...m.pendingTransaction, ...patch } }
+            : m
+        ),
+      }));
+      persist(updated);
+    },
+    [persist]
   );
 
   const sendMessage = useCallback(
@@ -333,5 +357,6 @@ export function useChat() {
     deleteConversation,
     clearAllConversations,
     renameConversation,
+    updatePendingTransaction,
   };
 }
