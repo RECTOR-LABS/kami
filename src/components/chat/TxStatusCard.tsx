@@ -74,6 +74,7 @@ export default function TxStatusCard({ transaction, onStatusChange }: Props) {
 
   const [phase, setPhase] = useState<Phase>(() => {
     if (transaction.status === 'confirmed' && transaction.signature) return 'confirmed';
+    if (transaction.status === 'submitted' && transaction.signature) return 'broadcasting';
     if (
       transaction.status === 'failed' ||
       transaction.status === 'cancelled' ||
@@ -95,6 +96,29 @@ export default function TxStatusCard({ transaction, onStatusChange }: Props) {
     },
     []
   );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (transaction.status !== 'submitted' || !transaction.signature) return;
+    const sig = transaction.signature;
+    const lastValidBlockHeight = Number(transaction.lastValidBlockHeight);
+    let active = true;
+    pollSignatureStatus(connection, sig, lastValidBlockHeight).then((outcome) => {
+      if (!active || cancelRef.current) return;
+      if (outcome.status === 'confirmed') {
+        setPhase('confirmed');
+        onStatusChange?.({ status: 'confirmed' });
+      } else {
+        const classified = classifyWalletError(new Error(outcome.reason));
+        setError(classified);
+        setPhase('failed');
+        onStatusChange?.({ status: 'failed', error: outcome.reason });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []); // mount-only resume — never re-runs
 
   const handleSign = async () => {
     if (!connected || !publicKey) {

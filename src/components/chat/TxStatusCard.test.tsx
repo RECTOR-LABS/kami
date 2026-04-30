@@ -208,4 +208,85 @@ describe('TxStatusCard', () => {
       { timeout: 4_000 }
     );
   });
+
+  it('hydrates to broadcasting and resumes polling when status=submitted+signature', async () => {
+    connection.getSignatureStatuses.mockResolvedValue({
+      value: [{ confirmationStatus: 'confirmed', err: null }],
+    });
+    connection.getBlockHeight.mockResolvedValue(50);
+    const onStatusChange = vi.fn();
+
+    const tx: PendingTransaction = {
+      ...baseTx,
+      status: 'submitted',
+      signature: 'sig-resumed-on-mount',
+    };
+    render(<TxStatusCard transaction={tx} onStatusChange={onStatusChange} />);
+
+    // No "Sign Transaction" button — we're past needs-sign.
+    expect(screen.queryByRole('button', { name: /sign transaction/i })).not.toBeInTheDocument();
+
+    // Poll runs and resolves to confirmed.
+    // POLL_INTERVAL_MS is 2_000 — extend waitFor beyond the default 1s ceiling.
+    await waitFor(
+      () => {
+        expect(connection.getSignatureStatuses).toHaveBeenCalledWith(
+          ['sig-resumed-on-mount'],
+          expect.any(Object)
+        );
+      },
+      { timeout: 4_000 }
+    );
+    await waitFor(
+      () => {
+        expect(onStatusChange).toHaveBeenCalledWith({ status: 'confirmed' });
+      },
+      { timeout: 4_000 }
+    );
+    await waitFor(
+      () => {
+        expect(screen.getByText(/confirmed/i)).toBeInTheDocument();
+      },
+      { timeout: 4_000 }
+    );
+  });
+
+  it('falls back to needs-sign when status=submitted but signature is missing', () => {
+    const tx: PendingTransaction = {
+      ...baseTx,
+      status: 'submitted',
+      // signature deliberately omitted
+    };
+    render(<TxStatusCard transaction={tx} />);
+
+    // Defensive: missing signature → render Sign button so user can re-attempt.
+    expect(screen.getByRole('button', { name: /sign transaction/i })).toBeInTheDocument();
+    expect(connection.getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
+  it('fires onStatusChange with failed when resumed poll detects blockhash-expired', async () => {
+    // Poll returns no signature info, then blockhash check fails.
+    connection.getSignatureStatuses.mockResolvedValue({ value: [null] });
+    connection.getBlockHeight.mockResolvedValue(99999);
+    const onStatusChange = vi.fn();
+
+    const tx: PendingTransaction = {
+      ...baseTx,
+      status: 'submitted',
+      signature: 'sig-stale',
+      lastValidBlockHeight: '100',
+    };
+    render(<TxStatusCard transaction={tx} onStatusChange={onStatusChange} />);
+
+    // POLL_INTERVAL_MS is 2_000 — extend waitFor beyond the default 1s ceiling.
+    await waitFor(
+      () => {
+        expect(onStatusChange).toHaveBeenCalled();
+      },
+      { timeout: 4_000 }
+    );
+    const lastCall = onStatusChange.mock.calls[onStatusChange.mock.calls.length - 1][0];
+    expect(lastCall.status).toBe('failed');
+    expect(lastCall.error).toMatch(/blockhash expired/i);
+  });
 });
