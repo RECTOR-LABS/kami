@@ -13,6 +13,41 @@ import {
 import type { ToolContext } from './tools/types.js';
 import { createLogger } from './log.js';
 
+// H1: Patterns that indicate the LLM is claiming a transaction was built
+// when it wasn't. Conservative — only triggers on high-confidence phrases
+// that actually appeared in Day 23 hallucination cases.
+const HALLUCINATION_PATTERNS: ReadonlyArray<RegExp> = [
+  /sign\s*&\s*send\s+card\s+should\s+(now\s+)?appear/i,
+  /sign\s*&\s*send\s+card\s+should\s+already\s+be\s+visible/i,
+  /transaction\s+is\s+ready/i,
+  /your\s+(repay|deposit|borrow|withdraw)\s+transaction\s+is\s+ready/i,
+];
+
+interface ToolEventSummary {
+  type: string;
+  toolName?: string;
+  isError?: boolean;
+}
+
+/**
+ * H1: Detects when the LLM has claimed a transaction was built but no
+ * successful build* tool-result event preceded the claim in this turn.
+ *
+ * Returns true → caller should append a system footnote to the response
+ * informing the user no tx was built. Append-only, never blocks the response.
+ */
+export function detectHallucinatedTxClaim(
+  fullText: string,
+  toolEvents: ReadonlyArray<ToolEventSummary>
+): boolean {
+  const matched = HALLUCINATION_PATTERNS.some((p) => p.test(fullText));
+  if (!matched) return false;
+  const lastBuildResult = [...toolEvents].reverse().find(
+    (e) => e.type === 'tool-result' && e.toolName?.startsWith('build') && !e.isError
+  );
+  return !lastBuildResult;
+}
+
 export interface ChatInput {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
   walletAddress: string | null;
@@ -142,22 +177,33 @@ export function createChatStream(
           abortSignal: signal,
         });
 
+        let fullAssistantText = '';
+        const toolEvents: ToolEventSummary[] = [];
+
         for await (const part of result.fullStream) {
           switch (part.type) {
             case 'text-delta':
+              fullAssistantText += part.text;
               writeEvent({ text: part.text });
               break;
             case 'tool-call':
+              toolEvents.push({ type: 'tool-call', toolName: part.toolName });
               writeEvent({
                 toolCall: { id: part.toolCallId, name: part.toolName, input: part.input },
               });
               break;
-            case 'tool-result':
+            case 'tool-result': {
+              const isError = Boolean(
+                part.output && typeof part.output === 'object' && 'ok' in part.output && (part.output as { ok: boolean }).ok === false
+              );
+              toolEvents.push({ type: 'tool-result', toolName: part.toolName, isError });
               writeEvent({
                 toolResult: { id: part.toolCallId, name: part.toolName, output: part.output },
               });
               break;
+            }
             case 'tool-error':
+              toolEvents.push({ type: 'tool-error', toolName: part.toolName, isError: true });
               writeEvent({
                 toolError: {
                   id: part.toolCallId,
@@ -172,6 +218,20 @@ export function createChatStream(
               break;
             }
           }
+        }
+
+        // H1: Post-stream hallucination guard. Append-only footnote, never blocks.
+        if (detectHallucinatedTxClaim(fullAssistantText, toolEvents)) {
+          const footnote =
+            '\n\n---\n*⚠️ System note: a transaction was NOT actually built. Please rephrase your request and try again.*';
+          writeEvent({ text: footnote });
+          log.info(
+            {
+              matchedPattern: HALLUCINATION_PATTERNS.find((p) => p.test(fullAssistantText))?.toString(),
+              toolCallCount: toolEvents.filter((e) => e.type === 'tool-call').length,
+            },
+            'hallucination_guard_triggered'
+          );
         }
 
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
