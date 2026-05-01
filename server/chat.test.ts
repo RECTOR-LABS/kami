@@ -135,3 +135,32 @@ describe('detectHallucinatedTxClaim (H1 / Cluster H)', () => {
     expect(detectHallucinatedTxClaim(text, events)).toBe(false);
   });
 });
+
+describe('createChatStream hallucination guard integration (H1 / Cluster H)', () => {
+  beforeEach(() => {
+    aiMocks.fullStreamFactory = null;
+  });
+
+  it('appends hallucination footnote BEFORE [DONE] terminator', async () => {
+    aiMocks.fullStreamFactory = async function* () {
+      yield {
+        type: 'text-delta',
+        text: 'Got it! A Sign & Send card should now appear in your UI.',
+      };
+    };
+
+    const log: ChatLogger = { info: vi.fn(), error: vi.fn() };
+    const stream = createChatStream(
+      { messages: [{ role: 'user', content: 'deposit 1' }], walletAddress: 'wallet123' },
+      'sk-stub',
+      log,
+    );
+    const body = await drain(stream);
+
+    const footnoteIdx = body.indexOf('System note: a transaction was NOT actually built');
+    const doneIdx = body.indexOf('data: [DONE]');
+    expect(footnoteIdx).toBeGreaterThan(-1);
+    expect(doneIdx).toBeGreaterThan(-1);
+    expect(footnoteIdx).toBeLessThan(doneIdx);
+  });
+});

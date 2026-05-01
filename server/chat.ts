@@ -14,13 +14,12 @@ import type { ToolContext } from './tools/types.js';
 import { createLogger } from './log.js';
 
 // H1: Patterns that indicate the LLM is claiming a transaction was built
-// when it wasn't. Conservative — only triggers on high-confidence phrases
+// when it wasn't. Conservative — only triggers on 3 specific phrases
 // that actually appeared in Day 23 hallucination cases.
 const HALLUCINATION_PATTERNS: ReadonlyArray<RegExp> = [
   /sign\s*&\s*send\s+card\s+should\s+(now\s+)?appear/i,
   /sign\s*&\s*send\s+card\s+should\s+already\s+be\s+visible/i,
   /transaction\s+is\s+ready/i,
-  /your\s+(repay|deposit|borrow|withdraw)\s+transaction\s+is\s+ready/i,
 ];
 
 interface ToolEventSummary {
