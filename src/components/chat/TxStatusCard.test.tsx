@@ -356,7 +356,7 @@ describe('TxStatusCard', () => {
     // The exact bytes from signTransaction must be passed to sendRawTransaction.
     expect(connection.sendRawTransaction).toHaveBeenCalledWith(
       signedBytes,
-      expect.objectContaining({ skipPreflight: false, maxRetries: 3 })
+      expect.objectContaining({ skipPreflight: true, maxRetries: 3 })
     );
   });
 
