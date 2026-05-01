@@ -25,6 +25,20 @@ export type PreflightErrorCode =
   | 'dust-floor'
   | 'simulation-failed';
 
+// Typed union of routing tokens shared between preflightSimulate's structured
+// outcomes and the LLM prompt rules (Cluster H Task 4). A typo on either side
+// breaks recovery routing silently — the union forces compile-time agreement
+// and doubles as grep-able coverage when auditing prompt rules.
+export type SuggestedAlternative =
+  | 'top-up-sol'
+  | 'add-collateral'
+  | 'add-collateral-then-retry'
+  | 'partial-repay-leave-dust'
+  | 'partial-withdraw'
+  | 'repay-borrow-first'
+  | 'kamino-ui'
+  | 'kamino-ui-repay-max';
+
 export interface PreflightContext {
   netValueAfterUsd?: number;
   currentDepositUsd?: number;
@@ -42,5 +56,5 @@ export type ToolResult<T = unknown> =
       code?: ToolErrorCode;
       errorCode?: PreflightErrorCode;
       context?: PreflightContext;
-      suggestedAlternatives?: string[];
+      suggestedAlternatives?: SuggestedAlternative[];
     };

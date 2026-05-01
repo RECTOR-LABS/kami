@@ -24,7 +24,13 @@ import {
   type KaminoReserve,
   type ActionType,
 } from '@kamino-finance/klend-sdk';
-import type { ToolDefinition, ToolResult } from './types.js';
+import type {
+  ToolDefinition,
+  ToolResult,
+  PreflightErrorCode,
+  PreflightContext,
+  SuggestedAlternative,
+} from './types.js';
 import { getRpc } from '../solana/connection.js';
 import { assertWallet } from './wallet.js';
 
@@ -468,21 +474,9 @@ export function formatSol(lamports: number | bigint): string {
   return (n / LAMPORTS_PER_SOL).toFixed(6).replace(/\.?0+$/, '');
 }
 
-type PreflightErrorCode =
-  | 'insufficient-sol'      // wallet can't even pay fees
-  | 'insufficient-rent'     // first-time Kamino rent shortage
-  | 'dust-floor'            // NetValueRemainingTooSmall in sim logs
-  | 'simulation-failed';    // generic on-chain rejection
-
-interface PreflightContext {
-  netValueAfterUsd?: number;
-  currentDepositUsd?: number;
-  currentBorrowUsd?: number;
-  shortfallSol?: number;
-  failingProgram?: string;
-  failingLog?: string;
-}
-
+// PreflightErrorCode + PreflightContext are imported from ./types.js — they're
+// also surfaced through ToolResult so the LLM sees them. Keep declarations in
+// one place to prevent drift.
 type PreflightOutcome =
   | { ok: true }
   | {
@@ -490,7 +484,7 @@ type PreflightOutcome =
       errorCode: PreflightErrorCode;
       error: string;
       context: PreflightContext;
-      suggestedAlternatives: string[];
+      suggestedAlternatives: SuggestedAlternative[];
     };
 
 /**
@@ -605,7 +599,7 @@ export async function preflightSimulate(
   );
   if (dustFloorLog) {
     const ctx = await tryExtractDustFloorContext(rpc, feePayer, action, amount, symbol);
-    const suggestedAlternatives =
+    const suggestedAlternatives: SuggestedAlternative[] =
       action === 'repay'
         ? ['add-collateral-then-retry', 'partial-repay-leave-dust', 'kamino-ui-repay-max']
         : action === 'withdraw'
