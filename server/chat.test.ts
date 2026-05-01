@@ -24,7 +24,7 @@ vi.mock('@ai-sdk/openai', () => ({
   createOpenAI: () => ({ chat: () => ({}) }),
 }));
 
-import { createChatStream, type ChatLogger } from './chat';
+import { createChatStream, detectHallucinatedTxClaim, type ChatLogger } from './chat';
 
 async function drain(stream: ReadableStream<Uint8Array>): Promise<string> {
   const reader = stream.getReader();
@@ -81,5 +81,86 @@ describe('createChatStream catch-block', () => {
 
     expect(log.error).toHaveBeenCalledTimes(1);
     expect(text).toContain('"error":"LLM provider down"');
+  });
+});
+
+describe('detectHallucinatedTxClaim (H1 / Cluster H)', () => {
+  const buildResultEvent = (toolName: string, isError = false) => ({
+    type: 'tool-result',
+    toolName,
+    isError,
+  });
+
+  it('returns true when "Sign & Send card should appear" appears with no build* tool-result', () => {
+    const text = 'Got it! A Sign & Send card should now appear in your UI.';
+    const events = [
+      { type: 'tool-call', toolName: 'getPortfolio' },
+      buildResultEvent('getPortfolio'),
+    ];
+    expect(detectHallucinatedTxClaim(text, events)).toBe(true);
+  });
+
+  it('returns false when "transaction is ready" appears AFTER a successful buildDeposit', () => {
+    const text = 'Your deposit transaction is ready! Click Sign.';
+    const events = [
+      { type: 'tool-call', toolName: 'buildDeposit' },
+      buildResultEvent('buildDeposit', false),
+    ];
+    expect(detectHallucinatedTxClaim(text, events)).toBe(false);
+  });
+
+  it('returns true when "your repay transaction is ready" appears AFTER a FAILED buildRepay', () => {
+    const text = 'Your repay transaction is ready! 🎉';
+    const events = [
+      { type: 'tool-call', toolName: 'buildRepay' },
+      buildResultEvent('buildRepay', true),
+    ];
+    expect(detectHallucinatedTxClaim(text, events)).toBe(true);
+  });
+
+  it('returns false for benign text without hallucination phrases', () => {
+    const text = "Here's your portfolio. You have $5 USDC deposited.";
+    const events = [buildResultEvent('getPortfolio')];
+    expect(detectHallucinatedTxClaim(text, events)).toBe(false);
+  });
+
+  it('matches case-insensitively across whitespace variations', () => {
+    const text = 'A SIGN  &  SEND CARD SHOULD now appear in your UI.';
+    expect(detectHallucinatedTxClaim(text, [])).toBe(true);
+  });
+
+  it('returns false when "Sign & Send card already visible" appears AFTER successful build*', () => {
+    const text = 'A Sign & Send card should already be visible.';
+    const events = [buildResultEvent('buildBorrow')];
+    expect(detectHallucinatedTxClaim(text, events)).toBe(false);
+  });
+});
+
+describe('createChatStream hallucination guard integration (H1 / Cluster H)', () => {
+  beforeEach(() => {
+    aiMocks.fullStreamFactory = null;
+  });
+
+  it('appends hallucination footnote BEFORE [DONE] terminator', async () => {
+    aiMocks.fullStreamFactory = async function* () {
+      yield {
+        type: 'text-delta',
+        text: 'Got it! A Sign & Send card should now appear in your UI.',
+      };
+    };
+
+    const log: ChatLogger = { info: vi.fn(), error: vi.fn() };
+    const stream = createChatStream(
+      { messages: [{ role: 'user', content: 'deposit 1' }], walletAddress: 'wallet123' },
+      'sk-stub',
+      log,
+    );
+    const body = await drain(stream);
+
+    const footnoteIdx = body.indexOf('System note: a transaction was NOT actually built');
+    const doneIdx = body.indexOf('data: [DONE]');
+    expect(footnoteIdx).toBeGreaterThan(-1);
+    expect(doneIdx).toBeGreaterThan(-1);
+    expect(footnoteIdx).toBeLessThan(doneIdx);
   });
 });

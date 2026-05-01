@@ -65,3 +65,52 @@ describe('classifyWalletError', () => {
     expect(classifyWalletError(undefined).kind).toBe('unknown');
   });
 });
+
+describe('dust-floor classification (H3 / Cluster H)', () => {
+  it('classifies NetValueRemainingTooSmall as dust-floor', () => {
+    const err = new Error(
+      'Transaction simulation failed: Error processing Instruction 5: NetValueRemainingTooSmall'
+    );
+    const r = classifyWalletError(err);
+    expect(r.kind).toBe('dust-floor');
+    expect(r.message).toMatch(/below the minimum value floor/i);
+    expect(r.hint).toMatch(/deposit more|partial repay|kamino ui/i);
+  });
+
+  it('classifies 0x17cc custom program error as dust-floor', () => {
+    const err = new Error('custom program error: 0x17cc');
+    const r = classifyWalletError(err);
+    expect(r.kind).toBe('dust-floor');
+  });
+
+  it('case-insensitive dust-floor match', () => {
+    const err = new Error('NETVALUEREMAININGTOOSMALL: net value 0.001');
+    const r = classifyWalletError(err);
+    expect(r.kind).toBe('dust-floor');
+  });
+});
+
+describe('simulation-failed classification (H3 / Cluster H)', () => {
+  it('classifies generic simulation-failed', () => {
+    const err = new Error('Transaction simulation failed: BlockhashNotFound');
+    const r = classifyWalletError(err);
+    expect(r.kind).toBe('simulation-failed');
+    expect(r.message).toMatch(/would fail on-chain/i);
+  });
+
+  it('classifies preflight check failed', () => {
+    const err = new Error('Preflight check failed: insufficient compute');
+    const r = classifyWalletError(err);
+    expect(r.kind).toBe('simulation-failed');
+  });
+});
+
+describe('WalletSignTransactionError (H3 / Cluster H)', () => {
+  it('classifies as cancelled with sign-specific message', () => {
+    const err = new Error('User declined');
+    err.name = 'WalletSignTransactionError';
+    const r = classifyWalletError(err);
+    expect(r.kind).toBe('cancelled');
+    expect(r.message).toMatch(/declined the sign request/i);
+  });
+});

@@ -24,7 +24,13 @@ import {
   type KaminoReserve,
   type ActionType,
 } from '@kamino-finance/klend-sdk';
-import type { ToolDefinition, ToolResult } from './types.js';
+import type {
+  ToolDefinition,
+  ToolResult,
+  PreflightErrorCode,
+  PreflightContext,
+  SuggestedAlternative,
+} from './types.js';
 import { getRpc } from '../solana/connection.js';
 import { assertWallet } from './wallet.js';
 
@@ -468,16 +474,57 @@ export function formatSol(lamports: number | bigint): string {
   return (n / LAMPORTS_PER_SOL).toFixed(6).replace(/\.?0+$/, '');
 }
 
-interface PreflightOutcome {
-  ok: boolean;
-  error?: string;
+// PreflightErrorCode + PreflightContext are imported from ./types.js — they're
+// also surfaced through ToolResult so the LLM sees them. Keep declarations in
+// one place to prevent drift.
+type PreflightOutcome =
+  | { ok: true }
+  | {
+      ok: false;
+      errorCode: PreflightErrorCode;
+      error: string;
+      context: PreflightContext;
+      suggestedAlternatives: SuggestedAlternative[];
+    };
+
+/**
+ * Extract the top-of-stack program ID from Solana sim logs (e.g.
+ * "Program XYZ123 failed:" → "XYZ123"). Returns undefined if no match.
+ */
+function extractTopProgram(logs: string[]): string | undefined {
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const m = logs[i].match(/^Program ([A-Za-z0-9]+) failed:/);
+    if (m) return m[1];
+  }
+  return undefined;
 }
 
-async function preflightSimulate(
+/**
+ * Best-effort extraction of obligation context for dust-floor diagnostics.
+ * Returns empty fields if portfolio cannot be fetched (preflight should not
+ * block on this — it's diagnostic context only).
+ */
+async function tryExtractDustFloorContext(
+  _rpc: ReturnType<typeof getRpc>,
+  _wallet: Address,
+  _action: BuildAction,
+  _amount: number,
+  _symbol: string
+): Promise<PreflightContext> {
+  // Light-touch implementation: real portfolio fetch happens in getPortfolio
+  // tool before build* runs, so the LLM already has context. Server-side
+  // re-fetch here would double-call klend; instead, return empty context and
+  // let the LLM combine the dust-floor signal with its existing portfolio
+  // knowledge to surface a useful message. Future enhancement: cache the
+  // portfolio snapshot per (wallet, ts) and reuse here.
+  return {};
+}
+
+export async function preflightSimulate(
   rpc: ReturnType<typeof getRpc>,
   base64Txn: Base64EncodedWireTransaction,
   feePayer: Address,
-  action: string,
+  action: BuildAction,
   symbol: string,
   amount: number
 ): Promise<PreflightOutcome> {
@@ -493,7 +540,10 @@ async function preflightSimulate(
   if (balanceLamports < 10_000n) {
     return {
       ok: false,
+      errorCode: 'insufficient-sol',
       error: `Wallet ${feePayer} has only ${formatSol(balanceLamports)} SOL — not enough for even a transaction fee. Top up at least 0.01 SOL before signing.`,
+      context: { shortfallSol: 0.01 - Number(balanceLamports) / 1e9 },
+      suggestedAlternatives: ['top-up-sol'],
     };
   }
 
@@ -516,6 +566,7 @@ async function preflightSimulate(
   if (!err) return { ok: true };
 
   const logs = simResp.value.logs ?? [];
+
   const insufficientLog = logs.find((line) => /insufficient lamports/i.test(line));
   if (insufficientLog) {
     const match = insufficientLog.match(/insufficient lamports (\d+),\s*need (\d+)/);
@@ -526,12 +577,40 @@ async function preflightSimulate(
       const approxTotal = Number(balanceLamports) + shortfall;
       return {
         ok: false,
+        errorCode: 'insufficient-rent',
         error: `Insufficient SOL for rent on this ${action}. The wallet would run out mid-transaction when setting up a required Kamino account. Current balance: ${formatSol(balanceLamports)} SOL. Estimated total needed: ~${formatSol(approxTotal)} SOL (short by ~${formatSol(shortfall)} SOL). Heads up: this is a one-time account setup cost per Kamino market — about ~0.022 SOL of this is obligation account rent that stays locked per (user, market) pair (${KLEND_NO_CLOSE_OBLIGATION}); the remainder is cToken ATA rent (recoverable when the ATAs are closed) plus the tx fee.`,
+        context: { shortfallSol: shortfall / 1e9 },
+        suggestedAlternatives: ['top-up-sol'],
       };
     }
     return {
       ok: false,
+      errorCode: 'insufficient-rent',
       error: `Insufficient SOL for account rent on this ${action}. First-time Kamino setup needs ~0.05 SOL on top of your deposit amount; ~0.022 SOL of that is the obligation account rent that stays locked per market (${KLEND_NO_CLOSE_OBLIGATION}). Current balance: ${formatSol(balanceLamports)} SOL.`,
+      context: {},
+      suggestedAlternatives: ['top-up-sol'],
+    };
+  }
+
+  // H2: Dust-floor detection — Anchor 0x17cc / "NetValueRemainingTooSmall"
+  const dustFloorLog = logs.find((line) =>
+    /netvalueremainingtoosmall/i.test(line) ||
+    /custom program error: 0x17cc/i.test(line)
+  );
+  if (dustFloorLog) {
+    const ctx = await tryExtractDustFloorContext(rpc, feePayer, action, amount, symbol);
+    const suggestedAlternatives: SuggestedAlternative[] =
+      action === 'repay'
+        ? ['add-collateral-then-retry', 'partial-repay-leave-dust', 'kamino-ui-repay-max']
+        : action === 'withdraw'
+          ? ['repay-borrow-first', 'partial-withdraw', 'kamino-ui']
+          : ['add-collateral', 'kamino-ui'];
+    return {
+      ok: false,
+      errorCode: 'dust-floor',
+      error: `Kamino rejected this ${action} — would leave the obligation net value below the protocol minimum (~$5 USD floor). Add more collateral, do a partial action, or use Kamino UI's atomic close-out at https://app.kamino.finance.`,
+      context: ctx,
+      suggestedAlternatives,
     };
   }
 
@@ -539,7 +618,13 @@ async function preflightSimulate(
   const tail = logs.slice(-4).join(' | ') || '(no logs)';
   return {
     ok: false,
+    errorCode: 'simulation-failed',
     error: `Simulation failed for ${action} ${amount} ${symbol}: ${errStr}. Last logs: ${tail}`,
+    context: {
+      failingProgram: extractTopProgram(logs),
+      failingLog: tail,
+    },
+    suggestedAlternatives: [],
   };
 }
 
@@ -734,7 +819,13 @@ async function buildPendingTransaction(
 
   const preflight = await preflightSimulate(rpc, base64Txn, wallet, action, symbol, uiAmount);
   if (!preflight.ok) {
-    return { ok: false, error: preflight.error ?? 'Transaction would fail simulation.' };
+    return {
+      ok: false,
+      error: preflight.error,
+      errorCode: preflight.errorCode,
+      context: preflight.context,
+      suggestedAlternatives: preflight.suggestedAlternatives,
+    };
   }
 
   return {

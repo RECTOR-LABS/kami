@@ -177,3 +177,106 @@ describe('getMarket in-flight guard', () => {
     expect(klendMocks.KaminoMarket.load).toHaveBeenCalledTimes(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// preflightSimulate structured outcome — H2 / Cluster H
+// ---------------------------------------------------------------------------
+
+describe('preflightSimulate structured outcome (H2 / Cluster H)', () => {
+  // Helper: create a mock RPC where simulateTransaction returns the given logs
+  const mockRpcWithSimLogs = (logs: string[], err: unknown = { InstructionError: [5, 'Custom'] }) => ({
+    getBalance: () => ({
+      send: async () => ({ value: 1_000_000_000n }),
+    }),
+    simulateTransaction: () => ({
+      send: async () => ({
+        value: { err, logs },
+      }),
+    }),
+  });
+
+  it('returns errorCode "dust-floor" when logs contain NetValueRemainingTooSmall', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = mockRpcWithSimLogs([
+      'Program log: Instruction: Repay',
+      'Program log: AnchorError occurred. Error Code: NetValueRemainingTooSmall',
+    ]);
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'repay', 'SOL', 0.018);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errorCode).toBe('dust-floor');
+    expect(r.context).toBeDefined();
+    expect(r.suggestedAlternatives).toContain('partial-repay-leave-dust');
+  });
+
+  it('returns errorCode "dust-floor" when logs contain custom program error 0x17cc', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = mockRpcWithSimLogs([
+      'Program log: Instruction: Withdraw',
+      'Program XYZ failed: custom program error: 0x17cc',
+    ]);
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'withdraw', 'USDC', 5);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errorCode).toBe('dust-floor');
+  });
+
+  it('suggests add-collateral-then-retry for full repay intent', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = mockRpcWithSimLogs([
+      'Program log: AnchorError occurred. Error Code: NetValueRemainingTooSmall',
+    ]);
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'repay', 'SOL', 0.018);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.suggestedAlternatives).toContain('add-collateral-then-retry');
+    expect(r.suggestedAlternatives).toContain('kamino-ui-repay-max');
+  });
+
+  it('suggests repay-borrow-first for withdraw intent on dust-floor', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = mockRpcWithSimLogs([
+      'Program log: AnchorError occurred. Error Code: NetValueRemainingTooSmall',
+    ]);
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'withdraw', 'USDC', 6);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.suggestedAlternatives).toContain('repay-borrow-first');
+  });
+
+  it('returns errorCode "simulation-failed" for non-dust generic failure', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = mockRpcWithSimLogs([
+      'Program XYZ failed: BlockhashNotFound',
+    ]);
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'deposit', 'USDC', 1);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errorCode).toBe('simulation-failed');
+    expect(r.context.failingLog).toContain('BlockhashNotFound');
+  });
+
+  it('returns errorCode "insufficient-sol" when balance is below tx-fee floor', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = {
+      getBalance: () => ({ send: async () => ({ value: 5_000n }) }),
+      simulateTransaction: () => ({ send: async () => ({ value: { err: null, logs: [] } }) }),
+    };
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'deposit', 'USDC', 1);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errorCode).toBe('insufficient-sol');
+  });
+
+  it('returns ok:true with no errorCode when simulation passes', async () => {
+    const { preflightSimulate } = await import('./kamino');
+    const rpc = {
+      getBalance: () => ({ send: async () => ({ value: 1_000_000_000n }) }),
+      simulateTransaction: () => ({ send: async () => ({ value: { err: null, logs: ['ok'] } }) }),
+    };
+    const r = await preflightSimulate(rpc as any, 'base64-tx' as any, 'wallet' as any, 'deposit', 'USDC', 1);
+    expect(r.ok).toBe(true);
+    // structured branches should NOT exist on ok:true outcomes
+    expect((r as any).errorCode).toBeUndefined();
+  });
+});
