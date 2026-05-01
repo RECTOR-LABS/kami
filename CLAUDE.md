@@ -152,6 +152,8 @@ ssh kami 'cd /home/kami/redis && docker compose logs --tail=50 redis-http'
 - **Vitest shared mock state via `vi.hoisted()`.** For mocks that need to share state with
   test bodies, prefer `vi.hoisted()` over bare `const` — works under Vitest 4.x auto-detect
   but fragile across refactors (memory `vitest-vi-hoisted-convention.md`).
+- **Solflare's `signAndSendTransaction` bypasses our `/api/rpc`.** It signs AND broadcasts inside the browser extension via `chrome.runtime.sendMessage`, using Solflare's own RPC endpoint. Empty `WalletSendTransactionError` was the symptom; observability was zero. Cluster H (PR #54) switched `TxStatusCard` to `useWallet().signTransaction(tx)` + manual `connection.sendRawTransaction(...)` so broadcast goes through our Helius proxy with structured errors. Memory: `solflare-bypasses-our-rpc.md`.
+- **Kamino NetValueRemainingTooSmall floor is ~$5 USD net (not the documented ~$1).** Empirically validated 2026-05-01: positions with $4-6 net cannot close cleanly via klend's standard repay/withdraw paths. The Kamino UI's "Repay Max" uses an atomic close-out path that bypasses this. Cluster H (PR #54) detects `0x17cc` / `NetValueRemainingTooSmall` in preflight logs, returns structured `errorCode: 'dust-floor'` + `suggestedAlternatives`, and the LLM routes to the right recovery (add-collateral / partial-repay / kamino-ui-escape). Updated memory: `kamino-net-value-floor.md`.
 
 ## Phase progress (state at end of Day 17)
 
