@@ -6,10 +6,11 @@ import type { PendingTransaction } from '../../types';
 const wallet = vi.hoisted(() => ({
   publicKey: { toBase58: () => 'PubKey1234567890' },
   connected: true,
-  sendTransaction: vi.fn(),
+  signTransaction: vi.fn() as ReturnType<typeof vi.fn> | undefined,
 }));
 
 const connection = vi.hoisted(() => ({
+  sendRawTransaction: vi.fn(),
   getSignatureStatuses: vi.fn(),
   getBlockHeight: vi.fn(),
   rpcEndpoint: 'https://x',
@@ -43,7 +44,8 @@ describe('TxStatusCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     wallet.connected = true;
-    wallet.sendTransaction = vi.fn();
+    wallet.signTransaction = vi.fn();
+    connection.sendRawTransaction.mockReset();
     connection.getSignatureStatuses.mockReset();
     connection.getBlockHeight.mockReset();
   });
@@ -83,7 +85,9 @@ describe('TxStatusCard', () => {
   });
 
   it('flips to signing state when Sign Transaction CTA is clicked', async () => {
-    wallet.sendTransaction.mockImplementation(() => new Promise(() => {})); // never resolves
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockImplementation(
+      () => new Promise(() => {})
+    ); // never resolves
     render(<TxStatusCard transaction={baseTx} />);
     fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
     await waitFor(() => {
@@ -92,7 +96,10 @@ describe('TxStatusCard', () => {
   });
 
   it('shows broadcasting state after sendTransaction resolves with a signature', async () => {
-    wallet.sendTransaction.mockResolvedValue('sig-from-rpc-12345');
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => new Uint8Array([1, 2, 3]),
+    });
+    connection.sendRawTransaction.mockResolvedValue('sig-from-rpc-12345');
     // First poll returns null (still in flight) — keeps the broadcasting state visible
     connection.getSignatureStatuses.mockResolvedValue({ value: [null] });
     connection.getBlockHeight.mockResolvedValue(50);
@@ -104,7 +111,10 @@ describe('TxStatusCard', () => {
   });
 
   it('fires onStatusChange with submitted+signature after sendTransaction resolves', async () => {
-    wallet.sendTransaction.mockResolvedValue('sig-from-rpc-12345');
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => new Uint8Array([1, 2, 3]),
+    });
+    connection.sendRawTransaction.mockResolvedValue('sig-from-rpc-12345');
     // First poll returns null — keeps state in broadcasting so we can assert the submitted callback fired pre-confirm.
     connection.getSignatureStatuses.mockResolvedValue({ value: [null] });
     connection.getBlockHeight.mockResolvedValue(50);
@@ -122,7 +132,10 @@ describe('TxStatusCard', () => {
   });
 
   it('fires onStatusChange with confirmed when poll succeeds', async () => {
-    wallet.sendTransaction.mockResolvedValue('sig-confirm-1');
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => new Uint8Array([1, 2, 3]),
+    });
+    connection.sendRawTransaction.mockResolvedValue('sig-confirm-1');
     connection.getSignatureStatuses.mockResolvedValue({
       value: [{ confirmationStatus: 'confirmed', err: null }],
     });
@@ -142,7 +155,9 @@ describe('TxStatusCard', () => {
   });
 
   it('fires onStatusChange with failed+error when sendTransaction throws', async () => {
-    wallet.sendTransaction.mockRejectedValue(new Error('User rejected the request'));
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('User rejected the request')
+    );
     const onStatusChange = vi.fn();
 
     render(<TxStatusCard transaction={baseTx} onStatusChange={onStatusChange} />);
@@ -158,7 +173,10 @@ describe('TxStatusCard', () => {
   });
 
   it('fires onStatusChange with failed+error when poll fails (blockhash-expired)', async () => {
-    wallet.sendTransaction.mockResolvedValue('sig-stale');
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => new Uint8Array([1, 2, 3]),
+    });
+    connection.sendRawTransaction.mockResolvedValue('sig-stale');
     // Poll never sees the signature on-chain, and blockhash check fails.
     connection.getSignatureStatuses.mockResolvedValue({ value: [null] });
     connection.getBlockHeight.mockResolvedValue(99999); // > lastValidBlockHeight (100)
@@ -190,7 +208,10 @@ describe('TxStatusCard', () => {
   });
 
   it('does not throw when onStatusChange prop is omitted', async () => {
-    wallet.sendTransaction.mockResolvedValue('sig-orphan');
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => new Uint8Array([1, 2, 3]),
+    });
+    connection.sendRawTransaction.mockResolvedValue('sig-orphan');
     connection.getSignatureStatuses.mockResolvedValue({
       value: [{ confirmationStatus: 'confirmed', err: null }],
     });
@@ -262,6 +283,85 @@ describe('TxStatusCard', () => {
     // Defensive: missing signature → render Sign button so user can re-attempt.
     expect(screen.getByRole('button', { name: /sign transaction/i })).toBeInTheDocument();
     expect(connection.getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
+  it('shows clear error when wallet does not support signTransaction', async () => {
+    // Legacy wallet edge case: useWallet().signTransaction is undefined.
+    wallet.signTransaction = undefined;
+
+    render(<TxStatusCard transaction={baseTx} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/does not support signTransaction/i)).toBeInTheDocument();
+    });
+    expect(connection.sendRawTransaction).not.toHaveBeenCalled();
+  });
+
+  it('classifies SendTransactionError from sendRawTransaction broadcast', async () => {
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => new Uint8Array([1, 2, 3]),
+    });
+    // Helius returns SendTransactionError with logs containing on-chain failure.
+    const rpcError = new Error(
+      'Transaction simulation failed: Error processing Instruction 5: custom program error: 0x17cc'
+    );
+    rpcError.name = 'SendTransactionError';
+    connection.sendRawTransaction.mockRejectedValue(rpcError);
+
+    render(<TxStatusCard transaction={baseTx} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+    // walletError classifies "0x17cc" → kind 'dust-floor' (added in Task 2).
+    // Until Task 2 lands, this test asserts on the message containing the raw error.
+    // Task 2 Step 2.3.1 will tighten this assertion to /below the minimum value floor/i.
+    await waitFor(() => {
+      expect(screen.getByText(/0x17cc|simulation failed|dust|minimum/i)).toBeInTheDocument();
+    });
+  });
+
+  it('classifies WalletSignTransactionError when user declines sign', async () => {
+    const signError = new Error('User declined the request');
+    signError.name = 'WalletSignTransactionError';
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockRejectedValue(signError);
+
+    render(<TxStatusCard transaction={baseTx} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+    // Until Task 2 adds the WalletSignTransactionError branch, this matches the
+    // existing 'cancelled' branch via 'declined' substring. Task 2 Step 2.3.2 will
+    // tighten this to /declined the sign request/i.
+    await waitFor(() => {
+      expect(screen.getByText(/declined|cancelled/i)).toBeInTheDocument();
+    });
+  });
+
+  it('broadcasts via connection.sendRawTransaction (not via wallet)', async () => {
+    const signedBytes = new Uint8Array([10, 20, 30, 40]);
+    (wallet.signTransaction as ReturnType<typeof vi.fn>).mockResolvedValue({
+      serialize: () => signedBytes,
+    });
+    connection.sendRawTransaction.mockResolvedValue('finalsig-base58');
+    connection.getSignatureStatuses.mockResolvedValue({
+      value: [{ confirmationStatus: 'confirmed', err: null }],
+    });
+    connection.getBlockHeight.mockResolvedValue(50);
+
+    render(<TxStatusCard transaction={baseTx} />);
+    fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
+
+    // POLL_INTERVAL_MS is 2_000 — extend waitFor beyond the default 1s ceiling.
+    await waitFor(
+      () => {
+        expect(screen.getByRole('link', { name: /solscan/i })).toBeInTheDocument();
+      },
+      { timeout: 4_000 }
+    );
+
+    expect(wallet.signTransaction).toHaveBeenCalledTimes(1);
+    expect(connection.sendRawTransaction).toHaveBeenCalledTimes(1);
+    // The exact bytes from signTransaction must be passed to sendRawTransaction.
+    expect(connection.sendRawTransaction).toHaveBeenCalledWith(
+      signedBytes,
+      expect.objectContaining({ skipPreflight: false, maxRetries: 3 })
+    );
   });
 
   it('fires onStatusChange with failed when resumed poll detects blockhash-expired', async () => {

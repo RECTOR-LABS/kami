@@ -69,7 +69,7 @@ async function pollSignatureStatus(
 }
 
 export default function TxStatusCard({ transaction, onStatusChange }: Props) {
-  const { publicKey, connected, sendTransaction } = useWallet();
+  const { publicKey, connected, signTransaction } = useWallet();
   const { connection } = useConnection();
 
   const [phase, setPhase] = useState<Phase>(() => {
@@ -126,17 +126,36 @@ export default function TxStatusCard({ transaction, onStatusChange }: Props) {
       setPhase('failed');
       return;
     }
+    if (!signTransaction) {
+      setError({
+        kind: 'unknown',
+        message: 'Wallet does not support signTransaction. Try a different wallet.',
+      });
+      setPhase('failed');
+      return;
+    }
     setError(null);
     setPhase('signing');
     try {
       const txBytes = decodeBase64ToBytes(transaction.base64Txn);
       const tx = VersionedTransaction.deserialize(txBytes);
-      const sig = await sendTransaction(tx, connection, {
+
+      // Step 1: Wallet ONLY signs. Deterministic across all Wallet-Standard wallets.
+      // Avoids Solflare's signAndSendTransaction which broadcasts via its own RPC.
+      const signed = await signTransaction(tx);
+
+      // Phase transition fires earlier — broadcast is now our concern, not the wallet's.
+      setPhase('broadcasting');
+
+      // Step 2: WE broadcast through OUR /api/rpc → Helius. Same RPC as preflight,
+      // structured SendTransactionError on failure (with .logs we can parse).
+      const sig = await connection.sendRawTransaction(signed.serialize(), {
         skipPreflight: false,
         maxRetries: 3,
+        preflightCommitment: 'confirmed',
       });
+
       setSignature(sig);
-      setPhase('broadcasting');
       onStatusChange?.({ status: 'submitted', signature: sig });
 
       const lastValidBlockHeight = Number(transaction.lastValidBlockHeight);
@@ -153,8 +172,12 @@ export default function TxStatusCard({ transaction, onStatusChange }: Props) {
         onStatusChange?.({ status: 'failed', error: outcome.reason });
       }
     } catch (err) {
+      // err is now one of:
+      //   - WalletSignTransactionError (user rejected sign in popup)
+      //   - SendTransactionError from Helius (.logs + .signature, with Anchor codes)
+      //   - Network error reaching /api/rpc
       // eslint-disable-next-line no-console
-      console.error('[Kami] sendTransaction failed', err);
+      console.error('[Kami] sign or broadcast failed', err);
       const classified = classifyWalletError(err);
       setError(classified);
       setPhase('failed');
