@@ -149,10 +149,13 @@ export default function TxStatusCard({ transaction, onStatusChange }: Props) {
 
       // Step 2: WE broadcast through OUR /api/rpc → Helius. Same RPC as preflight,
       // structured SendTransactionError on failure (with .logs we can parse).
+      // skipPreflight: true bypasses Helius's racy second-simulation that intermittently
+      // returns "Blockhash not found" when load-balanced backends differ between the node
+      // that issued the blockhash (server preflight) and the node that receives the
+      // broadcast. Server-side preflightSimulate (kamino.ts) already validated tx logic.
       const sig = await connection.sendRawTransaction(signed.serialize(), {
-        skipPreflight: false,
+        skipPreflight: true,
         maxRetries: 3,
-        preflightCommitment: 'confirmed',
       });
 
       setSignature(sig);
