@@ -5,6 +5,8 @@ export type WalletErrorKind =
   | 'insufficient'
   | 'network'
   | 'on-chain'
+  | 'simulation-failed'   // H3: pre-broadcast wallet/RPC simulation rejected
+  | 'dust-floor'          // H3: Kamino NetValueRemainingTooSmall (Anchor 0x17cc)
   | 'unknown';
 
 export interface ClassifiedWalletError {
@@ -64,6 +66,18 @@ function classifyFromStrings(
 ): ClassifiedWalletError {
   const haystack = `${name} ${message} ${causeMsg}`.toLowerCase();
 
+  // H3: WalletSignTransactionError — fired when user declines sign popup.
+  // Distinct from WalletSendTransactionError (the legacy bypass-our-RPC path).
+  // Name-based dispatch fires before CANCEL_PATTERNS so the sign-specific
+  // message wins over the generic "Cancelled in wallet." copy.
+  if (name === 'WalletSignTransactionError') {
+    return {
+      kind: 'cancelled',
+      message: 'You declined the sign request in your wallet.',
+      hint: 'Click Retry to reopen the signing popup.',
+    };
+  }
+
   if (CANCEL_PATTERNS.some((p) => haystack.includes(p))) {
     return {
       kind: 'cancelled',
@@ -112,12 +126,36 @@ function classifyFromStrings(
     };
   }
 
-  // Heuristic: empty WalletSendTransactionError = silently dismissed popup
+  // H3: Kamino NetValueRemainingTooSmall — Anchor error 0x17cc
+  // Now reachable because H6 routes broadcast through our RPC, which surfaces
+  // SendTransactionError.logs containing the raw Anchor message + custom code.
+  if (haystack.includes('netvalueremainingtoosmall') || haystack.includes('0x17cc')) {
+    return {
+      kind: 'dust-floor',
+      message:
+        'Kamino rejected this action — would leave the obligation below the minimum value floor.',
+      hint:
+        "Either deposit more collateral first, do a partial repay (leaving a tiny dust amount), or use Kamino UI's Repay Max for atomic close-out.",
+    };
+  }
+
+  // H3: Generic simulation failure (pre-broadcast preflight rejected the tx)
+  if (haystack.includes('simulation failed') || haystack.includes('preflight check failed')) {
+    return {
+      kind: 'simulation-failed',
+      message: 'Transaction would fail on-chain — pre-broadcast simulation rejected it.',
+      hint:
+        "Check the failure reason in your wallet's popup, or retry in a moment if it was a transient state issue.",
+    };
+  }
+
+  // H3: Empty WalletSendTransactionError — now rare since H6 routes via signTransaction.
+  // When it does fire, it's typically a popup closed without action.
   if (name === 'WalletSendTransactionError' && message.trim() === '') {
     return {
       kind: 'cancelled',
-      message: 'Wallet returned no detail — the popup was likely dismissed.',
-      hint: 'Reopen your wallet, watch for the signing popup, and approve.',
+      message: 'Wallet returned no detail — the popup was closed without action.',
+      hint: 'Reopen your wallet, watch for the signing popup, and click Approve or Reject.',
     };
   }
 

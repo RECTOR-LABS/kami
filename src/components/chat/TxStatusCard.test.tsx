@@ -310,11 +310,9 @@ describe('TxStatusCard', () => {
 
     render(<TxStatusCard transaction={baseTx} />);
     fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
-    // walletError classifies "0x17cc" → kind 'dust-floor' (added in Task 2).
-    // Until Task 2 lands, this test asserts on the message containing the raw error.
-    // Task 2 Step 2.3.1 will tighten this assertion to /below the minimum value floor/i.
+    // walletError classifies "0x17cc" / "NetValueRemainingTooSmall" → kind 'dust-floor'.
     await waitFor(() => {
-      expect(screen.getByText(/0x17cc|simulation failed|dust|minimum/i)).toBeInTheDocument();
+      expect(screen.getByText(/below the minimum value floor/i)).toBeInTheDocument();
     });
   });
 
@@ -325,11 +323,9 @@ describe('TxStatusCard', () => {
 
     render(<TxStatusCard transaction={baseTx} />);
     fireEvent.click(screen.getByRole('button', { name: /sign transaction/i }));
-    // Until Task 2 adds the WalletSignTransactionError branch, this matches the
-    // existing 'cancelled' branch via 'declined' substring. Task 2 Step 2.3.2 will
-    // tighten this to /declined the sign request/i.
+    // walletError classifies WalletSignTransactionError name → cancelled with sign-specific copy.
     await waitFor(() => {
-      expect(screen.getByText(/declined|cancelled/i)).toBeInTheDocument();
+      expect(screen.getByText(/declined the sign request/i)).toBeInTheDocument();
     });
   });
 
