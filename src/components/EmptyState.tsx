@@ -6,10 +6,13 @@ import LatestTxCell from './landing/LatestTxCell';
 import ToolCell from './landing/ToolCell';
 import PipelineCell from './landing/PipelineCell';
 import SponsorStrip from './landing/SponsorStrip';
+import DemoVideoBand from './landing/DemoVideoBand';
 import { TOOL_CELLS } from '../lib/landing-content';
 
 const SOLFLARE_WALLET_NAME = 'Solflare';
 const SOLFLARE_INSTALL_URL = 'https://solflare.com/download';
+const DEMO_VIDEO_URL =
+  'https://aheyudueboveptjv.public.blob.vercel-storage.com/demo/kami-walkthrough.mp4';
 
 export default function EmptyState() {
   const { connected, connecting, wallets, select } = useWallet();
@@ -58,6 +61,8 @@ export default function EmptyState() {
             />
           </span>
         </div>
+
+        <DemoVideoBand videoSrc={DEMO_VIDEO_URL} />
 
         <div className="grid grid-cols-12 gap-3 lg:gap-4">
           <HeroCell
