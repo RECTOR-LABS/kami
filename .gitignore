@@ -18,3 +18,4 @@ coverage/
 # QA reports (gitignored — use --commit to publish)
 .qa/
 .superpowers/
+.env*.local
