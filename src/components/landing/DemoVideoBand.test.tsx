@@ -41,6 +41,19 @@ describe('DemoVideoBand', () => {
     expect(video?.hasAttribute('playsinline')).toBe(true);
   });
 
+  it('renders the poster attribute when posterSrc is provided', () => {
+    const POSTER = 'https://example.com/poster.jpg';
+    const { container } = render(<DemoVideoBand videoSrc={TEST_URL} posterSrc={POSTER} />);
+    const video = container.querySelector('video');
+    expect(video?.getAttribute('poster')).toBe(POSTER);
+  });
+
+  it('omits the poster attribute when posterSrc is not provided', () => {
+    const { container } = render(<DemoVideoBand videoSrc={TEST_URL} />);
+    const video = container.querySelector('video');
+    expect(video?.hasAttribute('poster')).toBe(false);
+  });
+
   it('preserves the recording aspect ratio via the wrapper container', () => {
     const { container } = render(<DemoVideoBand videoSrc={TEST_URL} />);
     const wrapper = container.querySelector('section > div');
