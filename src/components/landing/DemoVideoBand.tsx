@@ -1,8 +1,9 @@
 interface Props {
   videoSrc: string;
+  posterSrc?: string;
 }
 
-export default function DemoVideoBand({ videoSrc }: Props) {
+export default function DemoVideoBand({ videoSrc, posterSrc }: Props) {
   return (
     <section
       aria-label="Kami demo video"
@@ -11,6 +12,7 @@ export default function DemoVideoBand({ videoSrc }: Props) {
       <div className="w-full max-w-4xl aspect-[1280/1026] rounded-2xl overflow-hidden border border-kami-cellBorder bg-black shadow-2xl">
         <video
           src={videoSrc}
+          poster={posterSrc}
           controls
           preload="metadata"
           playsInline

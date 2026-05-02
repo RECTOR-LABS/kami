@@ -13,6 +13,8 @@ const SOLFLARE_WALLET_NAME = 'Solflare';
 const SOLFLARE_INSTALL_URL = 'https://solflare.com/download';
 const DEMO_VIDEO_URL =
   'https://aheyudueboveptjv.public.blob.vercel-storage.com/demo/kami-walkthrough.mp4';
+const DEMO_POSTER_URL =
+  'https://aheyudueboveptjv.public.blob.vercel-storage.com/demo/kami-walkthrough-poster.jpg';
 
 export default function EmptyState() {
   const { connected, connecting, wallets, select } = useWallet();
@@ -62,7 +64,7 @@ export default function EmptyState() {
           </span>
         </div>
 
-        <DemoVideoBand videoSrc={DEMO_VIDEO_URL} />
+        <DemoVideoBand videoSrc={DEMO_VIDEO_URL} posterSrc={DEMO_POSTER_URL} />
 
         <div className="grid grid-cols-12 gap-3 lg:gap-4">
           <HeroCell
