@@ -8,6 +8,7 @@ import ChatHeader from './components/chat/ChatHeader';
 import ChatInputShell from './components/chat/ChatInputShell';
 import MessageBubble from './components/chat/MessageBubble';
 import EmptyState from './components/EmptyState';
+import PitchPage from './components/pitch/PitchPage';
 import { useChat } from './hooks/useChat';
 
 function AppContent() {
@@ -102,6 +103,16 @@ function AppContent() {
 }
 
 export default function App() {
+  if (typeof window !== 'undefined' && window.location.pathname === '/pitch') {
+    return (
+      <>
+        <PitchPage />
+        <Analytics />
+        <SpeedInsights />
+      </>
+    );
+  }
+
   return (
     <SolanaWalletProvider>
       <AppContent />
